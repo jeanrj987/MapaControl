@@ -72,6 +72,8 @@ const TvProgressBar = memo<TvProgressBarProps>(({
 });
 TvProgressBar.displayName = 'TvProgressBar';
 
+import { loadTvTimers, saveTvTimers, subscribeToMapConfigChanges } from './services/mapConfigService';
+
 export function App() {
   const [selectedRegionId, setSelectedRegionId] = useState<RegiaoId | null>(null);
   const [selectedState, setSelectedState] = useState<StateRenderData | null>(null);
@@ -93,6 +95,24 @@ export function App() {
     return DEFAULT_REGION_TIMERS;
   });
 
+  // Carrega tempos do Supabase na inicialização e assina Realtime
+  useEffect(() => {
+    loadTvTimers().then((timers) => {
+      setRegionTimers(timers);
+    });
+
+    const unsubscribe = subscribeToMapConfigChanges(
+      undefined,
+      (newTimers) => {
+        setRegionTimers(newTimers);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   // Duração em segundos da etapa atualmente em exibição
   const currentDurationSeconds = useMemo(() => {
     const key: keyof RegionTimers = selectedRegionId ? (selectedRegionId as keyof RegionTimers) : 'geral';
@@ -104,7 +124,7 @@ export function App() {
     const validSec = Math.max(3, Math.min(120, seconds));
     setRegionTimers((prev) => {
       const updated = { ...prev, [key]: validSec };
-      localStorage.setItem('controlsoft_tv_region_timers', JSON.stringify(updated));
+      saveTvTimers(updated);
       return updated;
     });
   }, []);
@@ -120,13 +140,13 @@ export function App() {
       geral: validSec,
     };
     setRegionTimers(updated);
-    localStorage.setItem('controlsoft_tv_region_timers', JSON.stringify(updated));
+    saveTvTimers(updated);
   }, []);
 
   // Restaura os tempos padrões
   const handleResetTimers = useCallback(() => {
     setRegionTimers(DEFAULT_REGION_TIMERS);
-    localStorage.setItem('controlsoft_tv_region_timers', JSON.stringify(DEFAULT_REGION_TIMERS));
+    saveTvTimers(DEFAULT_REGION_TIMERS);
   }, []);
 
   // Próxima região no modo TV
