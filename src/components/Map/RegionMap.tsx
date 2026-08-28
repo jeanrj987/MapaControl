@@ -275,12 +275,10 @@ export const RegionMap: React.FC<RegionMapProps> = ({
   }, [isLiveEditorActive]);
 
   const handleSetLiveEditorMode = useCallback((valOrFn: boolean | ((prev: boolean) => boolean)) => {
-    setLiveEditorMode((prev) => {
-      const next = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-      onToggleLiveEditor?.(next);
-      return next;
-    });
-  }, [onToggleLiveEditor]);
+    const next = typeof valOrFn === 'function' ? valOrFn(liveEditorMode) : valOrFn;
+    setLiveEditorMode(next);
+    onToggleLiveEditor?.(next);
+  }, [liveEditorMode, onToggleLiveEditor]);
 
   const [liveEditorSaveMsg, setLiveEditorSaveMsg] = useState('');
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
