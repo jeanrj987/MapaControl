@@ -155,28 +155,36 @@ export function subscribeToMapConfigChanges(
 ) {
   if (!isSupabaseConfigured || !supabase) return () => {};
 
-  const client = supabase;
-  const channel = client
-    .channel('mapa_config_realtime')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: TABLE_NAME },
-      (payload) => {
-        const newRecord = payload.new as { key: string; value: any } | null;
-        if (!newRecord) return;
+  try {
+    const client = supabase;
+    const channelName = 'mapa_config_' + Math.random().toString(36).substring(2, 10);
+    const channel = client
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: TABLE_NAME },
+        (payload) => {
+          const newRecord = payload.new as { key: string; value: any } | null;
+          if (!newRecord) return;
 
-        if (newRecord.key === 'div_norte' || newRecord.key === 'div_oeste_leste') {
-          // Recarrega divisas
-          loadDividers().then((divs) => onDividersChange?.(divs));
-        } else if (newRecord.key === 'tv_timers') {
-          onTimersChange?.(newRecord.value);
+          if (newRecord.key === 'div_norte' || newRecord.key === 'div_oeste_leste') {
+            loadDividers().then((divs) => onDividersChange?.(divs));
+          } else if (newRecord.key === 'tv_timers') {
+            onTimersChange?.(newRecord.value);
+          }
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
 
-  return () => {
-    client.removeChannel(channel);
-  };
+    return () => {
+      try {
+        client.removeChannel(channel);
+      } catch {}
+    };
+  } catch (err) {
+    console.warn('Erro ao assinar canal Realtime do Supabase:', err);
+    return () => {};
+  }
 }
+
 
