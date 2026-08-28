@@ -8,6 +8,7 @@ import { RegionMap } from './components/Map/RegionMap';
 import { RegionDetails } from './components/RegionDetails/RegionDetails';
 import { TvSettingsModal, RegionTimers, DEFAULT_REGION_TIMERS } from './components/UI/TvSettingsModal';
 import { Clock, Settings } from './components/UI/Icons';
+import { loadTvTimers, saveTvTimers, subscribeToMapConfigChanges } from './services/mapConfigService';
 
 const ROTATION_SEQUENCE: (RegiaoId | null)[] = ['norte', 'sorriso', 'oeste', 'leste', null];
 
@@ -71,8 +72,6 @@ const TvProgressBar = memo<TvProgressBarProps>(({
   );
 });
 TvProgressBar.displayName = 'TvProgressBar';
-
-import { loadTvTimers, saveTvTimers, subscribeToMapConfigChanges } from './services/mapConfigService';
 
 export function App() {
   const [selectedRegionId, setSelectedRegionId] = useState<RegiaoId | null>(null);
