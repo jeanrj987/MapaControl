@@ -274,9 +274,37 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     }
   }, [isLiveEditorActive]);
 
+  const [divNorte, setDivNorte] = useState<ControlPoint[]>(() => {
+    try {
+      const saved = localStorage.getItem('mapa_live_div_norte');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_DIV_NORTE;
+  });
+
+  const [divOesteLeste, setDivOesteLeste] = useState<ControlPoint[]>(() => {
+    try {
+      const saved = localStorage.getItem('mapa_live_div_oeste_leste');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_DIV_OESTE_LESTE;
+  });
+
+  const latestDivNorteRef = useRef<ControlPoint[]>(divNorte);
+  const latestDivOesteLesteRef = useRef<ControlPoint[]>(divOesteLeste);
+  useEffect(() => {
+    latestDivNorteRef.current = divNorte;
+  }, [divNorte]);
+  useEffect(() => {
+    latestDivOesteLesteRef.current = divOesteLeste;
+  }, [divOesteLeste]);
+
   const handleSetLiveEditorMode = useCallback((valOrFn: boolean | ((prev: boolean) => boolean)) => {
     const next = typeof valOrFn === 'function' ? valOrFn(liveEditorMode) : valOrFn;
     setLiveEditorMode(next);
+    if (!next) {
+      saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current);
+    }
     onToggleLiveEditor?.(next);
   }, [liveEditorMode, onToggleLiveEditor]);
 
@@ -302,41 +330,7 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     setMapPan({ x: 0, y: 0 });
   }, []);
 
-  const [divNorte, setDivNorte] = useState<ControlPoint[]>(() => {
-    try {
-      const saved = localStorage.getItem('mapa_live_div_norte');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_DIV_NORTE;
-  });
 
-  const [divOesteLeste, setDivOesteLeste] = useState<ControlPoint[]>(() => {
-    try {
-      const saved = localStorage.getItem('mapa_live_div_oeste_leste');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_DIV_OESTE_LESTE;
-  });
-
-  // Carrega divisas do Supabase na inicialização e assina Realtime
-  useEffect(() => {
-    loadDividers().then(({ divNorte: loadedNorte, divOesteLeste: loadedOL }) => {
-      setDivNorte(loadedNorte);
-      setDivOesteLeste(loadedOL);
-    });
-
-    const unsubscribe = subscribeToMapConfigChanges(
-      (newDividers) => {
-        setDivNorte(newDividers.divNorte);
-        setDivOesteLeste(newDividers.divOesteLeste);
-      },
-      undefined
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
 
   // SVG coordinate transformation accurate across all zoom and responsive scales
   const getSvgCoords = useCallback((e: React.MouseEvent | MouseEvent): { x: number; y: number } => {
@@ -451,6 +445,30 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     deletePoint(list, id);
   }, [deletePoint]);
 
+  // Carrega divisas do Supabase na inicialização e assina Realtime
+  useEffect(() => {
+    loadDividers().then(({ divNorte: loadedNorte, divOesteLeste: loadedOL }) => {
+      setDivNorte(loadedNorte);
+      setDivOesteLeste(loadedOL);
+      latestDivNorteRef.current = loadedNorte;
+      latestDivOesteLesteRef.current = loadedOL;
+    });
+
+    const unsubscribe = subscribeToMapConfigChanges(
+      (newDividers) => {
+        setDivNorte(newDividers.divNorte);
+        setDivOesteLeste(newDividers.divOesteLeste);
+        latestDivNorteRef.current = newDividers.divNorte;
+        latestDivOesteLesteRef.current = newDividers.divOesteLeste;
+      },
+      undefined
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     const handleWindowMouseMove = (e: MouseEvent) => {
       if (!draggingPointRef.current) return;
@@ -460,11 +478,13 @@ export const RegionMap: React.FC<RegionMapProps> = ({
       if (list === 'norte') {
         setDivNorte(prev => {
           const next = prev.map(p => (p.id === id ? { ...p, x, y } : p));
+          latestDivNorteRef.current = next;
           return next;
         });
       } else {
         setDivOesteLeste(prev => {
           const next = prev.map(p => (p.id === id ? { ...p, x, y } : p));
+          latestDivOesteLesteRef.current = next;
           return next;
         });
       }
@@ -473,7 +493,9 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     const handleWindowMouseUp = () => {
       if (draggingPointRef.current) {
         draggingPointRef.current = null;
-        saveDividers(divNorte, divOesteLeste);
+        saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current);
+        setLiveEditorSaveMsg('💾 Salvo no Banco');
+        setTimeout(() => setLiveEditorSaveMsg(''), 2000);
       }
     };
 
@@ -483,7 +505,7 @@ export const RegionMap: React.FC<RegionMapProps> = ({
       window.removeEventListener('mousemove', handleWindowMouseMove);
       window.removeEventListener('mouseup', handleWindowMouseUp);
     };
-  }, [getSvgCoords, divNorte, divOesteLeste]);
+  }, [getSvgCoords]);
 
   const handleResetDividers = useCallback(() => {
     setDivNorte(DEFAULT_DIV_NORTE);
@@ -503,27 +525,28 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     setTimeout(() => setLiveEditorSaveMsg(''), 3000);
   }, [divNorte, divOesteLeste]);
   const handleSnapJunction = useCallback(() => {
-    if (divNorte.length === 0 || divOesteLeste.length === 0) return;
+    const n = latestDivNorteRef.current;
+    const ol = latestDivOesteLesteRef.current;
+    if (n.length === 0 || ol.length === 0) return;
     let bestIdx = 0;
     let minD = Infinity;
-    const targetX = divOesteLeste[0]?.x ?? 380;
-    const targetY = divOesteLeste[0]?.y ?? 350;
-    for (let i = 0; i < divNorte.length; i++) {
-      const d = Math.hypot(divNorte[i].x - targetX, divNorte[i].y - targetY);
+    const targetX = ol[0]?.x ?? 380;
+    const targetY = ol[0]?.y ?? 350;
+    for (let i = 0; i < n.length; i++) {
+      const d = Math.hypot(n[i].x - targetX, n[i].y - targetY);
       if (d < minD) {
         minD = d;
         bestIdx = i;
       }
     }
-    const jp = divNorte[bestIdx];
-    setDivOesteLeste(prev => {
-      const next = [{ ...prev[0], x: jp.x, y: jp.y }, ...prev.slice(1)];
-      try { localStorage.setItem('mapa_live_div_oeste_leste', JSON.stringify(next)); } catch {}
-      return next;
-    });
-    setLiveEditorSaveMsg('🧲 Junção 100% alinhada!');
+    const jp = n[bestIdx];
+    const nextOL = [{ ...ol[0], x: jp.x, y: jp.y }, ...ol.slice(1)];
+    setDivOesteLeste(nextOL);
+    latestDivOesteLesteRef.current = nextOL;
+    saveDividers(n, nextOL);
+    setLiveEditorSaveMsg('🧲 Junção 100% alinhada e salva!');
     setTimeout(() => setLiveEditorSaveMsg(''), 2500);
-  }, [divNorte, divOesteLeste]);
+  }, []);
 
   const mtPaths = useMemo(() => {
     const n = divNorte;
