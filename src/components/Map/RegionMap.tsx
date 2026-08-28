@@ -271,6 +271,9 @@ export const RegionMap: React.FC<RegionMapProps> = ({
   useEffect(() => {
     if (isLiveEditorActive !== undefined) {
       setLiveEditorMode(isLiveEditorActive);
+      if (!isLiveEditorActive) {
+        saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current);
+      }
     }
   }, [isLiveEditorActive]);
 
@@ -506,6 +509,17 @@ export const RegionMap: React.FC<RegionMapProps> = ({
       window.removeEventListener('mouseup', handleWindowMouseUp);
     };
   }, [getSvgCoords]);
+
+  const handleSaveToCloud = useCallback(async () => {
+    setLiveEditorSaveMsg('⏳ Salvando na Nuvem...');
+    const ok = await saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current);
+    if (ok) {
+      setLiveEditorSaveMsg('✅ Salvo na Nuvem com Sucesso!');
+    } else {
+      setLiveEditorSaveMsg('⚠️ Salvo apenas localmente');
+    }
+    setTimeout(() => setLiveEditorSaveMsg(''), 3500);
+  }, []);
 
   const handleResetDividers = useCallback(() => {
     setDivNorte(DEFAULT_DIV_NORTE);
@@ -1238,6 +1252,14 @@ export const RegionMap: React.FC<RegionMapProps> = ({
             title='Resetar para o padrão'
           >
             ↺ Reset
+          </button>
+
+          <button
+            onClick={handleSaveToCloud}
+            className='px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full text-xs shadow-lg transition-all flex items-center gap-1 shrink-0 ring-1 ring-emerald-300'
+            title='Salvar divisas no banco de dados na Nuvem (Supabase)'
+          >
+            💾 Salvar na Nuvem
           </button>
 
           <button
