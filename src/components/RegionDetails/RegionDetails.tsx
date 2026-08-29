@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
-import { RegiaoId } from '../../types/region';
+import React, { useMemo, useState, useEffect } from 'react';
+import { RegiaoId, WeatherData } from '../../types/region';
 import { REGIONS_DATA, REGIONS_LIST } from '../../data/regions';
+import { fetchWeather, fetchBatchWeather, MAIN_CITIES_COORDS } from '../../services/weatherService';
+import { EXCEL_CITIES } from '../../data/cidadesExcel';
 import { UserCheck, Briefcase, Headphones, MapPin, Building2, Sparkles } from '../UI/Icons';
 
 interface RegionDetailsProps {
@@ -56,6 +58,48 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
 }) => {
   const regData = selectedRegionId ? REGIONS_DATA[selectedRegionId] : null;
   const color = selectedRegionId ? getConsultantColor(selectedRegionId) : '#95B955';
+
+  const poloCity = useMemo(() => {
+    if (selectedRegionId === 'sorriso') return MAIN_CITIES_COORDS['Sorriso'];
+    if (selectedRegionId === 'norte') return MAIN_CITIES_COORDS['Alta Floresta'];
+    if (selectedRegionId === 'leste') return MAIN_CITIES_COORDS['Cuiabá'];
+    if (selectedRegionId === 'oeste') return MAIN_CITIES_COORDS['Vilhena'];
+    return null;
+  }, [selectedRegionId]);
+
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [cidadeWeatherMap, setCidadeWeatherMap] = useState<Record<string, WeatherData>>({});
+
+  useEffect(() => {
+    if (!poloCity) {
+      setWeather(null);
+      return;
+    }
+    let active = true;
+    fetchWeather(poloCity.name, poloCity.lat, poloCity.lon).then((data) => {
+      if (active) setWeather(data);
+    });
+    return () => { active = false; };
+  }, [poloCity]);
+
+  useEffect(() => {
+    if (!selectedRegionId || !regData) {
+      setCidadeWeatherMap({});
+      return;
+    }
+
+    let active = true;
+    const loadAllCitiesWeather = async () => {
+      const regionCities = EXCEL_CITIES.filter((c) => c.regionId === selectedRegionId);
+      const data = await fetchBatchWeather(regionCities.map((c) => ({ name: c.name, lat: c.lat, lon: c.lon })));
+      if (active) {
+        setCidadeWeatherMap(data);
+      }
+    };
+
+    loadAllCitiesWeather();
+    return () => { active = false; };
+  }, [selectedRegionId, regData]);
 
   const totalCidades = useMemo(() => {
     if (!regData) return 0;
@@ -192,7 +236,19 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
             </div>
           </div>
 
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-2 flex-wrap'>
+            {weather && (
+              <span className='text-xs font-bold text-amber-300 bg-[#1B2433] px-3 py-1 rounded-full border border-amber-500/50 flex items-center gap-1.5 shadow-sm'>
+                <span>{weather.icon}</span>
+                <span>{weather.temp}°C</span>
+                <span className='text-slate-300 text-[11px] font-normal'>({weather.cityName})</span>
+                {weather.rainProbability !== undefined && weather.rainProbability > 0 && (
+                  <span className='text-sky-400 font-semibold border-l border-slate-700/80 pl-1.5 ml-0.5 text-[11px] flex items-center gap-0.5'>
+                    💧 {weather.rainProbability}%
+                  </span>
+                )}
+              </span>
+            )}
             <span className='text-xs font-bold text-slate-200 bg-[#1B2433] px-3 py-1 rounded-full border border-[#2B384E]'>
               {regData.area || 'MT a PA/RR'}
             </span>
@@ -285,12 +341,21 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
                             }`}
                             title='Clique para destacar e ver a localização exata no mapa'
                           >
-                            <div className='flex items-center gap-2 min-w-0 flex-1'>
+                            <div className='flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden'>
                               <span
                                 className={`w-2 h-2 rounded-full shrink-0 transition-transform ${isSelected ? 'scale-125 ring-2 ring-white' : ''}`}
                                 style={{ backgroundColor: color, boxShadow: '0 0 6px ' + color }}
                               />
                               <span className='text-xs sm:text-sm font-medium leading-snug truncate min-w-0'>{cidade}</span>
+                              {cidadeWeatherMap[cidade] && (
+                                <span
+                                  className='text-xs shrink-0 font-bold text-amber-300 flex items-center gap-0.5 ml-1 bg-[#111722]/80 px-1.5 py-0.5 rounded-md border border-slate-700/60 shadow-sm'
+                                  title={`${cidadeWeatherMap[cidade].conditionText} (${cidadeWeatherMap[cidade].temp}°C)`}
+                                >
+                                  <span>{cidadeWeatherMap[cidade].icon}</span>
+                                  <span className='text-[10.5px] text-amber-200 font-mono font-bold'>{cidadeWeatherMap[cidade].temp}°</span>
+                                </span>
+                              )}
                             </div>
                             {isSelected && (
                               <span className='text-[10px] font-bold text-sky-300 bg-sky-950/90 px-1.5 py-0.5 rounded border border-sky-500 shrink-0 ml-1'>

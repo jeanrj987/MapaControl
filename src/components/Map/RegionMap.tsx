@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback, memo } from 'react';
-import { RegiaoId } from '../../types/region';
+import { RegiaoId, WeatherData } from '../../types/region';
 import { REGIONS_DATA } from '../../data/regions';
+import { fetchBatchWeather } from '../../services/weatherService';
 import {
   getAllBrazilStates,
   getProjectedCities,
@@ -10,6 +11,7 @@ import {
   MAP_VIEWBOX_HEIGHT
 } from '../../data/brazilGeo';
 import { Compass, Sparkles, Users, Briefcase } from '../UI/Icons';
+
 
 interface RegionMapProps {
   selectedRegionId: RegiaoId | null;
@@ -31,6 +33,13 @@ const COLOR_NORTE = '#0284c7';
 const COLOR_SORRISO = '#eab308';
 const COLOR_OESTE = '#16a34a';
 const COLOR_LESTE = '#ea580c';
+
+const REGION_POLO_CITIES: Record<RegiaoId, string> = {
+  sorriso: 'Sorriso',
+  norte: 'Alta Floresta',
+  leste: 'Cuiabá',
+  oeste: 'Vilhena',
+};
 
 const getCityConsultantColor = (regionId: RegiaoId): string => {
   switch (regionId) {
@@ -101,13 +110,14 @@ StatePolygon.displayName = 'StatePolygon';
 
 const CityMarker = memo<{
   city: ProjectedCity;
+  weather?: WeatherData | null;
   isHighlighted: boolean;
   isHovered: boolean;
   isSelected: boolean;
   onHover: (city: ProjectedCity, e: React.MouseEvent) => void;
   onLeave: () => void;
   onClick: (city: ProjectedCity) => void;
-}>(({ city, isHighlighted, isHovered, isSelected, onHover, onLeave, onClick }) => {
+}>(({ city, weather, isHighlighted, isHovered, isSelected, onHover, onLeave, onClick }) => {
   const color = getCityConsultantColor(city.regionId);
 
   return (
@@ -153,9 +163,9 @@ const CityMarker = memo<{
       {isSelected && (
         <g transform='translate(0, -14)' className='pointer-events-none select-none'>
           <rect
-            x={-city.name.length * 3.8 - 8}
+            x={-city.name.length * 3.8 - (weather ? 26 : 8)}
             y='-14'
-            width={city.name.length * 7.6 + 16}
+            width={city.name.length * 7.6 + (weather ? 52 : 16)}
             height='18'
             rx='9'
             fill='#0B121E'
@@ -171,7 +181,7 @@ const CityMarker = memo<{
             fontWeight='800'
             fontFamily='sans-serif'
           >
-            📍 {city.name}
+            📍 {city.name} {weather ? `${weather.icon} ${weather.temp}°C` : ''}
           </text>
         </g>
       )}
@@ -262,8 +272,26 @@ export const RegionMap: React.FC<RegionMapProps> = ({
 }) => {
   const [hoveredCity, setHoveredCity] = useState<ProjectedCity | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [weatherMap, setWeatherMap] = useState<Record<string, WeatherData>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadWeather = async () => {
+      const allCitiesList = getProjectedCities().map((c) => ({ name: c.name, lat: c.lat, lon: c.lon }));
+      const data = await fetchBatchWeather(allCitiesList);
+      if (active) {
+        setWeatherMap(data);
+      }
+    };
+    loadWeather();
+    const interval = setInterval(loadWeather, 15 * 60 * 1000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Live MT Dividers Editor State (Drag & Drop Points on Map)
   const [liveEditorMode, setLiveEditorMode] = useState(isLiveEditorActive ?? false);
@@ -696,11 +724,31 @@ export const RegionMap: React.FC<RegionMapProps> = ({
             MAPA DE COBERTURA • {cities.length} CIDADES ATENDIDAS
           </span>
         </div>
-        <div className='flex items-center gap-1.5 bg-[#1B2433] px-3 py-1 rounded-full border border-[#2B384E] shadow-inner text-slate-300 text-[11px] sm:text-xs'>
-          <Sparkles className='w-3.5 h-3.5 text-[#95B955]' />
-          <span className='font-medium'>
-            {activeRegion ? 'Auto-Zoom: ' + activeRegion.toUpperCase() : 'Visão Geral: Brasil'}
-          </span>
+        <div className='flex items-center gap-2'>
+          {activeRegion && (() => {
+            const poloName = activeRegion === 'sorriso' ? 'Sorriso' : activeRegion === 'norte' ? 'Alta Floresta' : activeRegion === 'leste' ? 'Cuiabá' : 'Vilhena';
+            const weather = weatherMap[poloName];
+            if (!weather) return null;
+            return (
+              <div className='flex items-center gap-2 bg-[#1B2433]/90 border border-amber-500/50 px-3 py-1 rounded-full shadow-lg text-amber-300 font-bold text-xs animate-fade-in'>
+                <span className='text-sm'>{weather.icon}</span>
+                <span>{weather.temp}°C</span>
+                <span className='text-[10px] text-slate-300 font-normal hidden sm:inline'>({weather.cityName})</span>
+                {weather.rainProbability ? (
+                  <span className='text-[10px] text-sky-400 font-semibold border-l border-slate-700 pl-1.5 ml-0.5'>
+                    💧 {weather.rainProbability}%
+                  </span>
+                ) : null}
+              </div>
+            );
+          })()}
+
+          <div className='flex items-center gap-1.5 bg-[#1B2433] px-3 py-1 rounded-full border border-[#2B384E] shadow-inner text-slate-300 text-[11px] sm:text-xs'>
+            <Sparkles className='w-3.5 h-3.5 text-[#95B955]' />
+            <span className='font-medium'>
+              {activeRegion ? 'Auto-Zoom: ' + activeRegion.toUpperCase() : 'Visão Geral: Brasil'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -860,10 +908,15 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                 const isHovered = !liveEditorMode && hoveredCity?.id === city.id;
                 const isSelected = selectedCityObj?.id === city.id || selectedCityName?.toLowerCase() === city.name.toLowerCase();
 
+                const mainPoloCity = activeRegion ? REGION_POLO_CITIES[activeRegion] : null;
+                const isMainPoloCity = mainPoloCity ? city.name.toLowerCase() === mainPoloCity.toLowerCase() : false;
+                const cityWeather = isMainPoloCity ? weatherMap[city.name] : (isSelected ? weatherMap[city.name] : null);
+
                 return (
                   <CityMarker
                     key={city.id}
                     city={city}
+                    weather={cityWeather}
                     isHighlighted={isHighlighted}
                     isHovered={isHovered}
                     isSelected={isSelected}
@@ -1119,6 +1172,11 @@ export const RegionMap: React.FC<RegionMapProps> = ({
             <div className='bg-[#0B121E]/95 border text-white px-3.5 py-1.5 rounded-xl shadow-2xl flex items-center gap-2 whitespace-nowrap backdrop-blur-xl' style={{ borderColor: getCityConsultantColor(hoveredCity.regionId), boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.9), 0 0 15px ' + getCityConsultantColor(hoveredCity.regionId) + '44' }}>
               <span className='w-2.5 h-2.5 rounded-full shrink-0 shadow-sm' style={{ backgroundColor: getCityConsultantColor(hoveredCity.regionId) }} />
               <span className='text-sm sm:text-base font-medium tracking-wide font-exo text-white'>{hoveredCity.name} - {hoveredCity.uf}</span>
+              {weatherMap[hoveredCity.name] && (
+                <span className='text-xs font-bold text-sky-300 ml-1 bg-sky-950/80 px-2 py-0.5 rounded-full border border-sky-600/50 flex items-center gap-1'>
+                  {weatherMap[hoveredCity.name].icon} {weatherMap[hoveredCity.name].temp}°C
+                </span>
+              )}
             </div>
             <div className='w-2.5 h-2.5 bg-[#0B121E] rotate-45 mx-auto -mt-1.5 border-r border-b' style={{ borderColor: getCityConsultantColor(hoveredCity.regionId) }} />
           </div>
@@ -1223,7 +1281,7 @@ export const RegionMap: React.FC<RegionMapProps> = ({
             <button onClick={handleZoomIn} className='w-5 h-5 flex items-center justify-center hover:bg-slate-700 text-white font-bold text-xs rounded-full' title='Aumentar Zoom'>+</button>
             <button
               onClick={handleResetZoom}
-              className='ml-1 px-1.5 py-0.5 text-[10px] bg-amber-600 hover:bg-amber-500 text-white rounded-full font-bold transition-all shadow'
+              className='ml-1 px-1.5 py-0.5 text-[10px] bg-[#EAB308] hover:bg-amber-500 text-black font-bold rounded-full transition-all shadow'
               title='Resetar Zoom para 1.0x'
             >
               ↺ 1x
@@ -1277,13 +1335,18 @@ export const RegionMap: React.FC<RegionMapProps> = ({
         <div className='absolute bottom-16 left-1/2 -translate-x-1/2 z-40 bg-[#0B121E]/95 border border-sky-500/90 rounded-2xl px-4 py-2.5 shadow-2xl backdrop-blur-xl flex items-center gap-3 text-white max-w-lg animate-fade-in'>
           <div className='w-3.5 h-3.5 rounded-full bg-sky-400 animate-ping shrink-0' />
           <div className='flex flex-col min-w-0 flex-1'>
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-2 flex-wrap'>
               <span className='font-black text-sky-300 text-sm tracking-wide truncate'>
                 📍 {selectedCityObj.name} ({selectedCityObj.uf})
               </span>
               <span className='text-[10px] bg-sky-950 px-2 py-0.5 rounded-full border border-sky-600 font-bold text-sky-200 shrink-0 uppercase'>
                 {selectedCityObj.regionId === 'sorriso' ? 'Polo Sorriso' : 'Região ' + selectedCityObj.regionId}
               </span>
+              {weatherMap[selectedCityObj.name] && (
+                <span className='text-xs font-bold text-amber-300 bg-amber-950/90 px-2.5 py-0.5 rounded-full border border-amber-500/80 shrink-0 flex items-center gap-1 shadow-sm'>
+                  {weatherMap[selectedCityObj.name].icon} {weatherMap[selectedCityObj.name].temp}°C ({weatherMap[selectedCityObj.name].conditionText})
+                </span>
+              )}
             </div>
             <span className='text-xs text-slate-300 truncate'>
               Consultor: <strong className='text-white'>{selectedCityObj.consultor || REGIONS_DATA[selectedCityObj.regionId]?.equipe.consultor.nome}</strong> • Comercial: <strong className='text-white'>{selectedCityObj.comercial || REGIONS_DATA[selectedCityObj.regionId]?.equipe.comercial.nome}</strong>

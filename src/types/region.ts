@@ -35,3 +35,17 @@ export interface GeometriaRegiao {
 }
 
 export type VisualState = 'normal' | 'hover' | 'focus' | 'selected' | 'dimmed';
+
+export interface WeatherData {
+  temp: number;
+  tempMax?: number;
+  tempMin?: number;
+  humidity?: number;
+  rainProbability?: number;
+  weatherCode: number;
+  conditionText: string;
+  icon: string;
+  cityName: string;
+  updatedAt: number;
+}
+

@@ -103,16 +103,18 @@ export async function loadTvTimers(): Promise<RegionTimers> {
         .from(TABLE_NAME)
         .select('value')
         .eq('key', 'tv_timers')
-        .single();
+        .maybeSingle();
 
       if (!error && data?.value) {
         try {
           localStorage.setItem(LOCAL_STORAGE_KEY_TIMERS, JSON.stringify(data.value));
         } catch {}
         return { ...DEFAULT_REGION_TIMERS, ...data.value };
+      } else if (error) {
+        console.warn('[Supabase] Aviso ao buscar tv_timers:', error);
       }
     } catch (err) {
-      console.warn('Erro ao carregar tempos de TV do Supabase:', err);
+      console.warn('[Supabase] Erro ao carregar tempos de TV do Supabase:', err);
     }
   }
 
@@ -134,11 +136,30 @@ export async function saveTvTimers(timers: RegionTimers): Promise<boolean> {
 
   if (isSupabaseConfigured && supabase) {
     try {
-      const { error } = await supabase.from(TABLE_NAME).upsert([
-        { key: 'tv_timers', value: timers, updated_at: new Date().toISOString() },
-      ]);
-      return !error;
-    } catch {
+      const { error } = await supabase.from(TABLE_NAME).upsert(
+        [
+          { key: 'tv_timers', value: timers, updated_at: new Date().toISOString() },
+        ],
+        { onConflict: 'key' }
+      );
+
+      if (error) {
+        console.error('[Supabase] Erro ao salvar tv_timers via upsert:', error);
+        // Fallback se onConflict falhar
+        const { error: updateErr } = await supabase
+          .from(TABLE_NAME)
+          .update({ value: timers, updated_at: new Date().toISOString() })
+          .eq('key', 'tv_timers');
+
+        if (updateErr) {
+          await supabase.from(TABLE_NAME).insert([
+            { key: 'tv_timers', value: timers, updated_at: new Date().toISOString() }
+          ]);
+        }
+      }
+      return true;
+    } catch (err) {
+      console.error('[Supabase] Exceção ao salvar tv_timers:', err);
       return false;
     }
   }
