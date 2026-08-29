@@ -319,7 +319,7 @@ export function App() {
       {/* 4. Rodapé Discreto e Responsivo */}
       <footer className="border-t border-[#2E3A4B] bg-[#1D242E]/95 py-2 px-4 sm:px-6 text-[11px] sm:text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-1 shrink-0">
         <span>ControlSoft &copy; {new Date().getFullYear()} — Tecnologia e Gestão para o Agro</span>
-        <span className="text-[#95B955] font-bold">Painel Comercial de Alta Resolução</span>
+        <span className="text-[#95B955] font-bold">Painel de Clientes & Atendimento Comercial</span>
       </footer>
 
       {/* 5. Modal de Configurações de Rotação com Ajuste Individual por Região */}
