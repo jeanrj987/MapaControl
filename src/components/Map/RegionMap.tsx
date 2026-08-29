@@ -1299,16 +1299,6 @@ export const RegionMap: React.FC<RegionMapProps> = ({
         </div>
       )}
 
-      {/* Floating Bottom Button for Live MT Divider Editor */}
-      <div className='fixed bottom-4 right-4 z-[100]'>
-        <button
-          className={'px-4 py-2.5 rounded-full font-bold text-xs sm:text-sm shadow-2xl transition-all flex items-center gap-1.5 ' + (liveEditorMode ? 'bg-sky-500 hover:bg-sky-400 text-black ring-2 ring-sky-300' : 'bg-slate-800 hover:bg-slate-700 text-sky-400 border border-sky-500/50')}
-          onClick={() => handleSetLiveEditorMode((v) => !v)}
-        >
-          {liveEditorMode ? '✓ Concluir Divisas' : '✂️ Ajustar Divisas do MT (Arrastar ao Vivo)'}
-        </button>
-      </div>
-
       <div className='w-full mt-2 pt-2 border-t border-[#232E3E] flex flex-col gap-1.5 text-xs shrink-0 z-10'>
         <div className='flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2 sm:gap-3 bg-[#17202D]/90 border border-[#2B384E] rounded-2xl p-2 sm:px-3 sm:py-1.5 shadow-md flex-1 backdrop-blur-md'>
