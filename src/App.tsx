@@ -78,7 +78,7 @@ export function App() {
   const [selectedState, setSelectedState] = useState<StateRenderData | null>(null);
   const [selectedCityName, setSelectedCityName] = useState<string | null>(null);
   const [hoveredRegionId, setHoveredRegionId] = useState<RegiaoId | null>(null);
-  const [isTvMode, setIsTvMode] = useState<boolean>(false); // Desativado por padrão para estabilidade
+  const [isTvMode, setIsTvMode] = useState<boolean>(true); // Ativo por padrão para TV
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isAdjustingDividers, setIsAdjustingDividers] = useState<boolean>(false);
 
@@ -162,7 +162,6 @@ export function App() {
   // Alterna o modo de ajuste de divisas
   const handleToggleAdjustDividers = useCallback((active: boolean) => {
     setIsAdjustingDividers(active);
-    setIsTvMode(false);
     if (active) {
       setSelectedRegionId(null);
       setSelectedState(null);
@@ -172,7 +171,6 @@ export function App() {
 
   // Seleção manual via abas
   const handleSelectRegion = useCallback((id: RegiaoId | null) => {
-    setIsTvMode(false);
     setIsAdjustingDividers(false);
     setSelectedRegionId((prev) => (prev === id ? null : id));
     setSelectedState(null);
@@ -181,7 +179,6 @@ export function App() {
 
   // Seleção manual via clique no mapa
   const handleSelectState = useCallback((state: StateRenderData | null) => {
-    setIsTvMode(false);
     setIsAdjustingDividers(false);
     setSelectedState((prev) => (prev?.uf === state?.uf ? null : state));
     if (state?.regionId) {
@@ -243,7 +240,7 @@ export function App() {
             title="Alternar rotação automática de regiões para TV"
           >
             <span className={`w-2 h-2 rounded-full ${isTvMode ? 'bg-[#1D242E] animate-ping' : 'bg-slate-500'}`} />
-            <span>{isTvMode ? `Modo TV (${currentDurationSeconds}s)` : '▶️ Iniciar Modo TV'}</span>
+            <span>{isTvMode ? `Modo TV (${currentDurationSeconds}s)` : 'Modo TV: Pausado'}</span>
           </button>
 
           {/* Botão de Ajuste de Tempo / Configurações */}
