@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, memo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, memo } from 'react';
 import { RegiaoId } from './types/region';
 import { REGIONS_DATA } from './data/regions';
 import { StateRenderData } from './data/brazilGeo';
@@ -94,10 +94,15 @@ export function App() {
     return DEFAULT_REGION_TIMERS;
   });
 
+  const isInitialTimerLoad = useRef(true);
+
   // Carrega tempos do Supabase na inicialização e assina Realtime
   useEffect(() => {
     loadTvTimers().then((timers) => {
       setRegionTimers(timers);
+      setTimeout(() => {
+        isInitialTimerLoad.current = false;
+      }, 500);
     });
 
     const unsubscribe = subscribeToMapConfigChanges(
@@ -112,6 +117,15 @@ export function App() {
     };
   }, []);
 
+  // Persiste no Supabase e localStorage sempre que o usuário alterar os tempos
+  useEffect(() => {
+    if (isInitialTimerLoad.current) return;
+    const timeout = setTimeout(() => {
+      saveTvTimers(regionTimers);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [regionTimers]);
+
   // Duração em segundos da etapa atualmente em exibição
   const currentDurationSeconds = useMemo(() => {
     const key: keyof RegionTimers = selectedRegionId ? (selectedRegionId as keyof RegionTimers) : 'geral';
@@ -121,31 +135,24 @@ export function App() {
   // Altera o tempo de uma região específica
   const handleChangeRegionTimer = useCallback((key: keyof RegionTimers, seconds: number) => {
     const validSec = Math.max(3, Math.min(120, seconds));
-    setRegionTimers((prev) => {
-      const updated = { ...prev, [key]: validSec };
-      saveTvTimers(updated);
-      return updated;
-    });
+    setRegionTimers((prev) => ({ ...prev, [key]: validSec }));
   }, []);
 
   // Aplica o mesmo tempo para todas as regiões
   const handleApplyAllTimers = useCallback((seconds: number) => {
     const validSec = Math.max(3, Math.min(120, seconds));
-    const updated: RegionTimers = {
+    setRegionTimers({
       norte: validSec,
       sorriso: validSec,
       oeste: validSec,
       leste: validSec,
       geral: validSec,
-    };
-    setRegionTimers(updated);
-    saveTvTimers(updated);
+    });
   }, []);
 
   // Restaura os tempos padrões
   const handleResetTimers = useCallback(() => {
     setRegionTimers(DEFAULT_REGION_TIMERS);
-    saveTvTimers(DEFAULT_REGION_TIMERS);
   }, []);
 
   // Próxima região no modo TV
