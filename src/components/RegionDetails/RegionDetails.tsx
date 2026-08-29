@@ -154,10 +154,16 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
           </div>
         </div>
 
-        {/* Rodapé Informativo */}
+        {/* Rodapé Informativo com Status da Nuvem */}
         <div className='border-t border-[#232E3E] pt-2.5 flex items-center justify-between text-xs text-slate-400 shrink-0'>
-          <span className='text-[11px] font-bold text-slate-400'>
-            💾 Suas alterações são salvas automaticamente no seu navegador.
+          <div className='flex items-center gap-2'>
+            <span className='w-2 h-2 rounded-full bg-emerald-400 animate-pulse' />
+            <span className='text-[11px] font-bold text-emerald-300'>
+              ☁️ Sincronização Nuvem (Supabase) Ativa
+            </span>
+          </div>
+          <span className='text-[10px] text-slate-500 hidden sm:inline'>
+            Atualização em Tempo Real
           </span>
         </div>
       </div>

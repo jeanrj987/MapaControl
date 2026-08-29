@@ -56,6 +56,11 @@ export const Header: React.FC<HeaderProps> = ({ selectedRegionName }) => {
         </div>
 
         <div className='flex items-center gap-2 sm:gap-3 self-start md:self-auto flex-wrap'>
+          <div className='flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-950/50 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold shadow-inner' title='Sincronização em Nuvem Supabase Ativa'>
+            <span className='w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]' />
+            <span className='hidden sm:inline'>Nuvem</span>
+          </div>
+
           <div className='flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-xl bg-[#1B2433]/80 border border-[#232E3E] shadow-inner text-[11px] sm:text-xs backdrop-blur-md'>
             <Building2 className='w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#95B955]' />
             <div>
