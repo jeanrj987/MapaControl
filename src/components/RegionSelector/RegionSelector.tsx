@@ -77,19 +77,20 @@ export const RegionSelector: React.FC<RegionSelectorProps> = ({
 
         <div className='h-5 sm:h-6 w-px bg-[#232E3E] mx-0.5 sm:mx-1 shrink-0' />
 
-        {/* Nova Aba de Ajustar Divisas do MT */}
+        {/* Botão de Ajustar Divisas do MT (Apenas Ícone de Tesoura) */}
         <button
           type='button'
           onClick={() => onToggleAdjustDividers?.(!isAdjustingDividers)}
-          className={`flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${
+          title='Ajustar Divisas MT'
+          className={`flex items-center justify-center px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl text-sm sm:text-base font-bold transition-all duration-200 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${
             isAdjustingDividers
-              ? 'bg-sky-500 text-black shadow-lg shadow-sky-500/25 ring-2 ring-sky-300'
-              : 'bg-[#1A2332] text-sky-400 hover:bg-[#232E3E] hover:text-white border border-sky-500/30'
+              ? 'bg-sky-500 text-black shadow-lg shadow-sky-500/25 ring-2 ring-sky-300 scale-105'
+              : 'bg-[#1A2332] text-sky-400 hover:bg-[#232E3E] hover:text-white border border-sky-500/30 hover:border-sky-400'
           }`}
           aria-pressed={isAdjustingDividers}
+          aria-label='Ajustar Divisas MT'
         >
-          <span className='text-sm'>✂️</span>
-          <span className='whitespace-nowrap'>Ajustar Divisas MT</span>
+          <span className='leading-none'>✂️</span>
         </button>
       </div>
     </nav>
