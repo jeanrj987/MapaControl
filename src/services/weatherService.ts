@@ -66,8 +66,13 @@ export async function fetchWeather(cityName: string, lat: number, lon: number): 
 
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`;
-    const response = await fetch(url);
-    if (!response.ok) return null;
+    let response = await fetch(url).catch(() => null);
+    if (!response || !response.ok) {
+      // Pequeno retry em caso de instabilidade de rede ou limite momentâneo
+      await new Promise((r) => setTimeout(r, 400));
+      response = await fetch(url).catch(() => null);
+    }
+    if (!response || !response.ok) return null;
 
     const data = await response.json();
     const temp = Math.round(data.current?.temperature_2m ?? 0);
@@ -108,14 +113,18 @@ export async function fetchWeather(cityName: string, lat: number, lon: number): 
 
 export async function fetchBatchWeather(cities: { name: string; lat: number; lon: number }[]): Promise<Record<string, WeatherData>> {
   const results: Record<string, WeatherData> = {};
-  await Promise.all(
-    cities.map(async (c) => {
-      const data = await fetchWeather(c.name, c.lat, c.lon);
-      if (data) {
-        results[c.name] = data;
-      }
-    })
-  );
+  const CHUNK_SIZE = 8;
+  for (let i = 0; i < cities.length; i += CHUNK_SIZE) {
+    const chunk = cities.slice(i, i + CHUNK_SIZE);
+    await Promise.all(
+      chunk.map(async (c) => {
+        const data = await fetchWeather(c.name, c.lat, c.lon);
+        if (data) {
+          results[c.name] = data;
+        }
+      })
+    );
+  }
   return results;
 }
 

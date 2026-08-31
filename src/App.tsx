@@ -286,11 +286,11 @@ export function App() {
       />
 
       {/* 3. Conteúdo Principal Responsivo (Grade Mobile -> Desktop / TV) */}
-      <main className="flex-1 max-w-[1700px] w-full mx-auto px-3 sm:px-6 py-2 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-stretch overflow-y-auto lg:overflow-hidden">
+      <main className="flex-1 max-w-[1780px] w-full mx-auto px-3 sm:px-6 py-2 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-stretch overflow-y-auto lg:overflow-hidden">
         {/* Coluna do Mapa (Lado Esquerdo no Desktop, Superior no Mobile) */}
         <section
           aria-label="Visualização Geográfica do Mapa"
-          className="lg:col-span-7 xl:col-span-7 flex flex-col items-center justify-center min-h-[420px] sm:min-h-[500px] lg:min-h-0 lg:h-full overflow-hidden"
+          className="lg:col-span-6 xl:col-span-6 flex flex-col items-center justify-center min-h-[420px] sm:min-h-[500px] lg:min-h-0 lg:h-full overflow-hidden"
         >
           <RegionMap
             selectedRegionId={selectedRegionId}
@@ -309,7 +309,7 @@ export function App() {
         {/* Coluna das Informações (Lado Direito no Desktop, Inferior no Mobile) */}
         <aside
           aria-label="Painel de Informações da Equipe Comercial"
-          className="lg:col-span-5 xl:col-span-5 flex flex-col min-h-[500px] sm:min-h-[460px] lg:min-h-0 lg:h-full overflow-hidden"
+          className="lg:col-span-6 xl:col-span-6 flex flex-col min-h-[500px] sm:min-h-[460px] lg:min-h-0 lg:h-full overflow-hidden"
         >
           <RegionDetails
             selectedRegionId={selectedRegionId}

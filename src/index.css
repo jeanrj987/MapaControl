@@ -64,7 +64,14 @@ svg { color-scheme: dark; isolation: isolate; }
   box-shadow: 0 6px 20px rgba(149, 185, 85, 0.4);
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #111722; }
-::-webkit-scrollbar-thumb { background: #2A364B; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #95B955; }
+/* Ocultar barra de rolagem em todos os navegadores para TV e telas clean */
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+}
+
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}

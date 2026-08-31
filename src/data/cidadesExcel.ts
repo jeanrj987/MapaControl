@@ -60,7 +60,7 @@ export const EXCEL_CITIES: ExcelCity[] = [
   {
     "id": "city_4",
     "rawName": "Bandeirantes - MT",
-    "name": "Nova Bandeirantes",
+    "name": "Bandeirantes",
     "uf": "MT",
     "lon": -56.08,
     "lat": -10.05,
@@ -1076,6 +1076,50 @@ export const EXCEL_CITIES: ExcelCity[] = [
     "uf": "RO",
     "lon": -60.14,
     "lat": -12.74,
+    "regionId": "oeste",
+    "consultor": "André",
+    "comercial": "Pablo"
+  },
+  {
+    "id": "city_97",
+    "rawName": "Uruaçu - GO",
+    "name": "Uruaçu",
+    "uf": "GO",
+    "lon": -49.14,
+    "lat": -14.52,
+    "regionId": "leste",
+    "consultor": "André",
+    "comercial": "Gilberto"
+  },
+  {
+    "id": "city_98",
+    "rawName": "Crixás do Tocantins - TO",
+    "name": "Crixás do Tocantins",
+    "uf": "TO",
+    "lon": -48.92,
+    "lat": -11.10,
+    "regionId": "leste",
+    "consultor": "André",
+    "comercial": "Gilberto"
+  },
+  {
+    "id": "city_99",
+    "rawName": "Santana do Araguaia - PA",
+    "name": "Santana do Araguaia",
+    "uf": "PA",
+    "lon": -50.34,
+    "lat": -9.27,
+    "regionId": "norte",
+    "consultor": "Wanderson",
+    "comercial": "Sidnei"
+  },
+  {
+    "id": "city_100",
+    "rawName": "Campos de Júlio - MT",
+    "name": "Campos de Júlio",
+    "uf": "MT",
+    "lon": -59.15,
+    "lat": -13.90,
     "regionId": "oeste",
     "consultor": "André",
     "comercial": "Pablo"

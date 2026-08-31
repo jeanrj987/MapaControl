@@ -123,10 +123,16 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
           entryMap['GO'] ? (['GO', entryMap['GO']] as [string, string[]]) : null,
           entryMap['BA'] ? (['BA', entryMap['BA']] as [string, string[]]) : null,
         ].filter(Boolean) as [string, string[]][],
-        [
-          entryMap['TO'] ? (['TO', entryMap['TO']] as [string, string[]]) : null,
-          entryMap['MG'] ? (['MG', entryMap['MG']] as [string, string[]]) : null,
-        ].filter(Boolean) as [string, string[]][],
+        entryMap['TO'] ? [['TO', entryMap['TO']] as [string, string[]]] : [],
+        entryMap['MG'] ? [['MG', entryMap['MG']] as [string, string[]]] : [],
+      ].filter((c) => c.length > 0);
+    }
+    if (selectedRegionId === 'sorriso') {
+      const mtCities = entries[0]?.[1] || [];
+      const half = Math.ceil(mtCities.length / 2);
+      return [
+        [['MT', mtCities.slice(0, half)] as [string, string[]]],
+        [['MT', mtCities.slice(half)] as [string, string[]]],
       ];
     }
     return entries.map((entry) => [entry]);
@@ -217,17 +223,17 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
   if (selectedRegionId && regData) {
     return (
       <div
-        className='bg-[#131A26] rounded-3xl border p-4 sm:p-5 shadow-2xl flex flex-col justify-between h-full overflow-hidden'
+        className='bg-[#131A26] rounded-3xl border p-3 sm:p-4 shadow-2xl flex flex-col justify-between h-full overflow-hidden'
         style={{ borderColor: color + '66' }}
       >
-        <div className='border-b border-[#232E3E] pb-3 flex items-center justify-between shrink-0'>
-          <div className='flex items-center gap-3'>
+        <div className='border-b border-[#232E3E] pb-2.5 flex items-center justify-between shrink-0'>
+          <div className='flex items-center gap-2.5'>
             <span
-              className='w-4 h-4 rounded-full shrink-0 shadow-lg'
-              style={{ backgroundColor: color, boxShadow: '0 0 12px ' + color }}
+              className='w-3.5 h-3.5 rounded-full shrink-0 shadow-lg'
+              style={{ backgroundColor: color, boxShadow: '0 0 10px ' + color }}
             />
             <div>
-              <h2 className='text-xl sm:text-2xl font-bold tracking-wide uppercase' style={{ color }}>
+              <h2 className='text-lg sm:text-xl font-bold tracking-wide uppercase' style={{ color }}>
                 {regData.nome}
               </h2>
               <span className='text-xs text-slate-400 font-medium'>
@@ -238,7 +244,7 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
 
           <div className='flex items-center gap-2 flex-wrap'>
             {weather && (
-              <span className='text-xs font-bold text-amber-300 bg-[#1B2433] px-3 py-1 rounded-full border border-amber-500/50 flex items-center gap-1.5 shadow-sm'>
+              <span className='text-xs font-bold text-amber-300 bg-[#1B2433] px-2.5 py-1 rounded-full border border-amber-500/50 flex items-center gap-1.5 shadow-sm'>
                 <span>{weather.icon}</span>
                 <span>{weather.temp}°C</span>
                 <span className='text-slate-300 text-[11px] font-normal'>({weather.cityName})</span>
@@ -249,48 +255,48 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
                 )}
               </span>
             )}
-            <span className='text-xs font-bold text-slate-200 bg-[#1B2433] px-3 py-1 rounded-full border border-[#2B384E]'>
+            <span className='text-xs font-bold text-slate-200 bg-[#1B2433] px-2.5 py-1 rounded-full border border-[#2B384E]'>
               {regData.area || 'MT a PA/RR'}
             </span>
-            <span className='text-xs font-bold text-[#95B955] bg-[#1B2433] px-3 py-1 rounded-full border border-[#95B955]/40'>
+            <span className='text-xs font-bold text-[#95B955] bg-[#1B2433] px-2.5 py-1 rounded-full border border-[#95B955]/40'>
               {totalCidades} Cidades Atendidas
             </span>
           </div>
         </div>
 
-        <div className='grid grid-cols-3 gap-2 sm:gap-3 py-3 border-b border-[#232E3E] shrink-0'>
-          <div className='bg-[#1B2433]/90 border border-[#2B384E] rounded-2xl p-3 flex flex-col gap-1.5 shadow-md'>
+        <div className='grid grid-cols-3 gap-2 py-2 border-b border-[#232E3E] shrink-0'>
+          <div className='bg-[#1B2433]/90 border border-[#2B384E] rounded-2xl p-2 sm:p-2.5 flex flex-col gap-1 shadow-md'>
             <div className='flex items-center gap-1.5 text-slate-300 text-xs'>
               <UserCheck className='w-3.5 h-3.5' style={{ color }} />
               <span className='font-bold uppercase tracking-wider text-[11px] text-slate-300'>Consultor</span>
             </div>
-            <span className='text-base sm:text-lg font-medium text-slate-100 tracking-tight truncate'>
+            <span className='text-sm sm:text-base font-medium text-slate-100 tracking-tight truncate'>
               {regData.equipe.consultor.nome}
             </span>
           </div>
 
-          <div className='bg-[#1B2433]/90 border border-[#2B384E] rounded-2xl p-3 flex flex-col gap-1.5 shadow-md'>
+          <div className='bg-[#1B2433]/90 border border-[#2B384E] rounded-2xl p-2 sm:p-2.5 flex flex-col gap-1 shadow-md'>
             <div className='flex items-center gap-1.5 text-slate-300 text-xs'>
               <Briefcase className='w-3.5 h-3.5' style={{ color }} />
               <span className='font-bold uppercase tracking-wider text-[11px] text-slate-300'>Comercial</span>
             </div>
-            <span className='text-base sm:text-lg font-medium text-slate-100 tracking-tight truncate'>
+            <span className='text-sm sm:text-base font-medium text-slate-100 tracking-tight truncate'>
               {regData.equipe.comercial.nome}
             </span>
           </div>
 
-          <div className='bg-[#1B2433]/90 border border-[#2B384E] rounded-2xl p-3 flex flex-col gap-1.5 shadow-md'>
+          <div className='bg-[#1B2433]/90 border border-[#2B384E] rounded-2xl p-2 sm:p-2.5 flex flex-col gap-1 shadow-md'>
             <div className='flex items-center gap-1.5 text-slate-300 text-xs'>
               <Headphones className='w-3.5 h-3.5' style={{ color }} />
               <span className='font-bold uppercase tracking-wider text-[11px] text-slate-300'>Atendentes</span>
             </div>
-            <span className='text-base sm:text-lg font-medium text-slate-100 tracking-tight truncate' title={regData.equipe.atendentes.map((a) => a.nome).join(' e ')}>
+            <span className='text-sm sm:text-base font-medium text-slate-100 tracking-tight truncate' title={regData.equipe.atendentes.map((a) => a.nome).join(' e ')}>
               {regData.equipe.atendentes.map((a) => a.nome).join(' e ')}
             </span>
           </div>
         </div>
 
-        <div className='flex items-center justify-between pt-3 pb-2 shrink-0'>
+        <div className='flex items-center justify-between pt-2 pb-1.5 shrink-0'>
           <span className='text-xs font-bold text-[#95B955] uppercase tracking-wider flex items-center gap-1.5'>
             <MapPin className='w-3.5 h-3.5' />
             Municípios Atendidos por Estado:
@@ -300,64 +306,74 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
           </span>
         </div>
 
-        <div className={`flex-1 grid gap-3 overflow-hidden pr-1 ${selectedRegionId === 'sorriso' ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-3'}`}>
+        <div
+          className={`flex-1 min-h-0 grid gap-2 overflow-hidden ${
+            selectedRegionId === 'leste'
+              ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'
+              : selectedRegionId === 'sorriso'
+              ? 'grid-cols-1 sm:grid-cols-2'
+              : 'grid-cols-1 sm:grid-cols-3'
+          }`}
+        >
           {columns.map((colEntries, colIdx) => (
             <div
               key={colIdx}
-              className='bg-[#17202D]/95 border rounded-2xl p-3 shadow-md flex flex-col gap-2.5 overflow-hidden transition-colors'
+              className='bg-[#17202D]/95 border rounded-2xl p-2 sm:p-2.5 shadow-md flex flex-col gap-1.5 overflow-hidden transition-colors'
               style={{ borderColor: color + '55' }}
             >
               {colEntries.map(([uf, listaCidades]) => {
                 const stateTitle = uf === 'MT' && selectedRegionId === 'sorriso' ? 'MATO GROSSO (POLO CENTRAL)' : STATE_NAME_MAP[uf] || uf;
-                const isSingleStateSorriso = selectedRegionId === 'sorriso';
 
                 return (
-                  <div key={uf} className='flex flex-col gap-1 shrink-0'>
-                    <div className='flex items-center justify-between gap-2 bg-[#111722] border border-[#2B384E] px-2.5 py-1.5 rounded-xl shrink-0 overflow-hidden shadow-inner'>
-                      <div className='flex items-center gap-2 min-w-0 flex-1 overflow-hidden'>
-                        <span className='border border-[#2B384E] text-white text-xs font-bold px-1.5 py-0.5 rounded-md bg-[#1B2433] shrink-0'>
+                  <div key={uf} className='flex flex-col gap-0.5 shrink-0'>
+                    <div className='flex items-center justify-between gap-1.5 bg-[#111722] border border-[#2B384E] px-2 py-0.5 rounded-xl shrink-0 overflow-hidden shadow-inner'>
+                      <div className='flex items-center gap-1 min-w-0 flex-1 overflow-hidden'>
+                        <span className='border border-[#2B384E] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-[#1B2433] shrink-0'>
                           {uf}
                         </span>
-                        <span className='text-xs sm:text-sm font-bold text-slate-100 uppercase tracking-wide truncate min-w-0' title={stateTitle}>
+                        <span className='text-xs font-bold text-slate-100 uppercase tracking-wide truncate min-w-0' title={stateTitle}>
                           {stateTitle}
                         </span>
                       </div>
-                      <span className='text-xs font-bold text-[#95B955] bg-[#17202D] px-2 py-0.5 rounded-md border border-[#232E3E] shrink-0 whitespace-nowrap'>
+                      <span className='text-[10px] font-bold text-[#95B955] bg-[#17202D] px-1.5 py-0.2 rounded-md border border-[#232E3E] shrink-0 whitespace-nowrap'>
                         {listaCidades.length} cid.
                       </span>
                     </div>
 
-                    <div className={`pt-0.5 pr-0.5 ${isSingleStateSorriso ? 'grid grid-cols-2 gap-x-4 gap-y-1 content-start' : 'flex flex-col gap-0.5'}`}>
+                    <div className='flex flex-col gap-0.5 pt-0.5'>
                       {listaCidades.map((cidade) => {
                         const isSelected = selectedCityName === cidade;
+                        const weatherInfo = cidadeWeatherMap[cidade];
                         return (
                           <div
                             key={cidade}
                             onClick={() => onSelectCity?.(isSelected ? null : cidade)}
-                            className={`flex items-center justify-between py-1 px-2 rounded-lg transition-all shrink-0 cursor-pointer ${
+                            title={`${cidade}${weatherInfo ? ` • ${weatherInfo.temp}°C (${weatherInfo.conditionText})` : ''} — Clique para destacar no mapa`}
+                            className={`flex items-center justify-between py-0.5 px-1.5 rounded-lg transition-all shrink-0 cursor-pointer ${
                               isSelected
-                                ? 'bg-sky-500/25 border border-sky-400 text-white font-bold shadow-lg shadow-sky-500/20 ring-1 ring-sky-400 scale-[1.02]'
+                                ? 'bg-sky-500/25 border border-sky-400 text-white font-bold shadow-lg shadow-sky-500/20 ring-1 ring-sky-400 scale-[1.01]'
                                 : 'hover:bg-[#1F2B3E]/80 text-slate-200 hover:text-white border border-transparent'
                             }`}
-                            title='Clique para destacar e ver a localização exata no mapa'
                           >
-                            <div className='flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden'>
+                            <div className='flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden mr-1'>
                               <span
                                 className={`w-2 h-2 rounded-full shrink-0 transition-transform ${isSelected ? 'scale-125 ring-2 ring-white' : ''}`}
                                 style={{ backgroundColor: color, boxShadow: '0 0 6px ' + color }}
                               />
-                              <span className='text-xs sm:text-sm font-medium leading-snug truncate min-w-0'>{cidade}</span>
-                              {cidadeWeatherMap[cidade] && (
-                                <span
-                                  className='text-xs shrink-0 font-bold text-amber-300 flex items-center gap-0.5 ml-1 bg-[#111722]/80 px-1.5 py-0.5 rounded-md border border-slate-700/60 shadow-sm'
-                                  title={`${cidadeWeatherMap[cidade].conditionText} (${cidadeWeatherMap[cidade].temp}°C)`}
-                                >
-                                  <span>{cidadeWeatherMap[cidade].icon}</span>
-                                  <span className='text-[10.5px] text-amber-200 font-mono font-bold'>{cidadeWeatherMap[cidade].temp}°</span>
-                                </span>
-                              )}
+                              <span className='text-xs sm:text-[13px] font-medium leading-snug truncate min-w-0' title={cidade}>
+                                {cidade}
+                              </span>
                             </div>
-                            {isSelected && (
+                            {weatherInfo && (
+                              <span
+                                className='text-xs shrink-0 font-bold text-amber-300 flex items-center gap-0.5 ml-1 bg-[#111722]/90 px-1.5 py-0.5 rounded-md border border-slate-700/60 shadow-sm'
+                                title={`${weatherInfo.conditionText} (${weatherInfo.temp}°C)`}
+                              >
+                                <span>{weatherInfo.icon}</span>
+                                <span className='text-[10.5px] text-amber-200 font-mono font-bold'>{weatherInfo.temp}°</span>
+                              </span>
+                            )}
+                            {isSelected && !weatherInfo && (
                               <span className='text-[10px] font-bold text-sky-300 bg-sky-950/90 px-1.5 py-0.5 rounded border border-sky-500 shrink-0 ml-1'>
                                 📍 No Mapa
                               </span>
@@ -376,6 +392,11 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
     );
   }
 
+  const totalCidadesGeral = Object.values(REGIONS_DATA).reduce(
+    (acc, reg) => acc + Object.values(reg.cidadesPorEstado).reduce((a, c) => a + c.length, 0),
+    0
+  );
+
   return (
     <div className='bg-[#131A26] rounded-3xl border border-[#232E3E] p-4 sm:p-5 shadow-2xl flex flex-col justify-between h-full overflow-hidden'>
       <div className='border-b border-[#232E3E] pb-2.5 flex items-center justify-between shrink-0'>
@@ -389,7 +410,7 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
           </h2>
         </div>
         <span className='text-xs font-extrabold text-white bg-[#1B2433] px-3 py-1 rounded-full border border-[#232E3E] shadow-inner'>
-          97 Cidades Mapeadas
+          {totalCidadesGeral} Cidades Mapeadas
         </span>
       </div>
 
