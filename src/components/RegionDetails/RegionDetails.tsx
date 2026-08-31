@@ -127,14 +127,6 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
         entryMap['MG'] ? [['MG', entryMap['MG']] as [string, string[]]] : [],
       ].filter((c) => c.length > 0);
     }
-    if (selectedRegionId === 'sorriso') {
-      const mtCities = entries[0]?.[1] || [];
-      const half = Math.ceil(mtCities.length / 2);
-      return [
-        [['MT', mtCities.slice(0, half)] as [string, string[]]],
-        [['MT', mtCities.slice(half)] as [string, string[]]],
-      ];
-    }
     return entries.map((entry) => [entry]);
   }, [selectedRegionId, entries]);
 
@@ -311,7 +303,7 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
             selectedRegionId === 'leste'
               ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'
               : selectedRegionId === 'sorriso'
-              ? 'grid-cols-1 sm:grid-cols-2'
+              ? 'grid-cols-1'
               : 'grid-cols-1 sm:grid-cols-3'
           }`}
         >
@@ -323,6 +315,7 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
             >
               {colEntries.map(([uf, listaCidades]) => {
                 const stateTitle = uf === 'MT' && selectedRegionId === 'sorriso' ? 'MATO GROSSO (POLO CENTRAL)' : STATE_NAME_MAP[uf] || uf;
+                const isSingleStateSorriso = selectedRegionId === 'sorriso';
 
                 return (
                   <div key={uf} className='flex flex-col gap-0.5 shrink-0'>
@@ -340,7 +333,7 @@ export const RegionDetails: React.FC<RegionDetailsProps> = React.memo(({
                       </span>
                     </div>
 
-                    <div className='flex flex-col gap-0.5 pt-0.5'>
+                    <div className={`pt-0.5 ${isSingleStateSorriso ? 'grid grid-cols-2 gap-x-3 gap-y-0.5 content-start' : 'flex flex-col gap-0.5'}`}>
                       {listaCidades.map((cidade) => {
                         const isSelected = selectedCityName === cidade;
                         const weatherInfo = cidadeWeatherMap[cidade];
