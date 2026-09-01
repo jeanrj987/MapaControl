@@ -1,16 +1,18 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import { ControlPoint, DEFAULT_DIV_NORTE, DEFAULT_DIV_OESTE_LESTE } from '../types/dividers';
+import { ControlPoint, DEFAULT_DIV_NORTE, DEFAULT_DIV_OESTE_LESTE, DEFAULT_DIV_PA } from '../types/dividers';
 import { RegionTimers, DEFAULT_REGION_TIMERS } from '../components/UI/TvSettingsModal';
 
 const TABLE_NAME = 'mapa_config';
 
 const LOCAL_STORAGE_KEY_NORTE = 'mapa_live_div_norte';
 const LOCAL_STORAGE_KEY_OESTE_LESTE = 'mapa_live_div_oeste_leste';
+const LOCAL_STORAGE_KEY_PA = 'mapa_live_div_pa';
 const LOCAL_STORAGE_KEY_TIMERS = 'controlsoft_tv_region_timers';
 
 export interface DividersData {
   divNorte: ControlPoint[];
   divOesteLeste: ControlPoint[];
+  divPa: ControlPoint[];
 }
 
 /**
@@ -23,22 +25,25 @@ export async function loadDividers(): Promise<DividersData> {
       const { data, error } = await supabase
         .from(TABLE_NAME)
         .select('key, value')
-        .in('key', ['div_norte', 'div_oeste_leste']);
+        .in('key', ['div_norte', 'div_oeste_leste', 'div_pa']);
 
       if (!error && data && data.length > 0) {
         const norteRow = data.find((r) => r.key === 'div_norte');
         const olRow = data.find((r) => r.key === 'div_oeste_leste');
+        const paRow = data.find((r) => r.key === 'div_pa');
 
         const divNorte: ControlPoint[] = norteRow?.value || DEFAULT_DIV_NORTE;
         const divOesteLeste: ControlPoint[] = olRow?.value || DEFAULT_DIV_OESTE_LESTE;
+        const divPa: ControlPoint[] = paRow?.value || DEFAULT_DIV_PA;
 
         // Atualiza cache local
         try {
           localStorage.setItem(LOCAL_STORAGE_KEY_NORTE, JSON.stringify(divNorte));
           localStorage.setItem(LOCAL_STORAGE_KEY_OESTE_LESTE, JSON.stringify(divOesteLeste));
+          localStorage.setItem(LOCAL_STORAGE_KEY_PA, JSON.stringify(divPa));
         } catch {}
 
-        return { divNorte, divOesteLeste };
+        return { divNorte, divOesteLeste, divPa };
       }
     } catch (err) {
       console.warn('Erro ao carregar divisas do Supabase, usando fallback local:', err);
@@ -49,14 +54,17 @@ export async function loadDividers(): Promise<DividersData> {
   try {
     const savedNorte = localStorage.getItem(LOCAL_STORAGE_KEY_NORTE);
     const savedOL = localStorage.getItem(LOCAL_STORAGE_KEY_OESTE_LESTE);
+    const savedPA = localStorage.getItem(LOCAL_STORAGE_KEY_PA);
     return {
       divNorte: savedNorte ? JSON.parse(savedNorte) : DEFAULT_DIV_NORTE,
       divOesteLeste: savedOL ? JSON.parse(savedOL) : DEFAULT_DIV_OESTE_LESTE,
+      divPa: savedPA ? JSON.parse(savedPA) : DEFAULT_DIV_PA,
     };
   } catch {
     return {
       divNorte: DEFAULT_DIV_NORTE,
       divOesteLeste: DEFAULT_DIV_OESTE_LESTE,
+      divPa: DEFAULT_DIV_PA,
     };
   }
 }
@@ -64,11 +72,16 @@ export async function loadDividers(): Promise<DividersData> {
 /**
  * Salva as divisas no Supabase e no localStorage
  */
-export async function saveDividers(divNorte: ControlPoint[], divOesteLeste: ControlPoint[]): Promise<boolean> {
+export async function saveDividers(
+  divNorte: ControlPoint[],
+  divOesteLeste: ControlPoint[],
+  divPa: ControlPoint[] = DEFAULT_DIV_PA
+): Promise<boolean> {
   // 1. Salva no localStorage imediatamente
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY_NORTE, JSON.stringify(divNorte));
     localStorage.setItem(LOCAL_STORAGE_KEY_OESTE_LESTE, JSON.stringify(divOesteLeste));
+    localStorage.setItem(LOCAL_STORAGE_KEY_PA, JSON.stringify(divPa));
   } catch {}
 
   // 2. Salva no Supabase se estiver configurado
@@ -77,6 +90,7 @@ export async function saveDividers(divNorte: ControlPoint[], divOesteLeste: Cont
       const { error } = await supabase.from(TABLE_NAME).upsert([
         { key: 'div_norte', value: divNorte, updated_at: new Date().toISOString() },
         { key: 'div_oeste_leste', value: divOesteLeste, updated_at: new Date().toISOString() },
+        { key: 'div_pa', value: divPa, updated_at: new Date().toISOString() },
       ]);
 
       if (error) {
@@ -92,6 +106,7 @@ export async function saveDividers(divNorte: ControlPoint[], divOesteLeste: Cont
 
   return true;
 }
+
 
 /**
  * Carrega os tempos de rotação da TV
@@ -188,7 +203,7 @@ export function subscribeToMapConfigChanges(
           const newRecord = payload.new as { key: string; value: any } | null;
           if (!newRecord) return;
 
-          if (newRecord.key === 'div_norte' || newRecord.key === 'div_oeste_leste') {
+          if (newRecord.key === 'div_norte' || newRecord.key === 'div_oeste_leste' || newRecord.key === 'div_pa') {
             loadDividers().then((divs) => onDividersChange?.(divs));
           } else if (newRecord.key === 'tv_timers') {
             onTimersChange?.(newRecord.value);

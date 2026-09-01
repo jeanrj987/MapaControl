@@ -41,3 +41,16 @@ export const DEFAULT_DIV_OESTE_LESTE: ControlPoint[] = [
   { id: 'ol6', x: 395, y: 510 },
   { id: 'ol7', x: 395, y: 550 },
 ];
+
+export const DEFAULT_DIV_PA: ControlPoint[] = [
+  { id: 'pa0', x: 495, y: 138 },
+  { id: 'pa1', x: 503, y: 168 },
+  { id: 'pa2', x: 518, y: 198 },
+  { id: 'pa3', x: 532, y: 230 },
+  { id: 'pa4', x: 538, y: 260 },
+  { id: 'pa5', x: 542, y: 285 },
+  { id: 'pa6', x: 555, y: 312 },
+  { id: 'pa7', x: 568, y: 332 },
+  { id: 'pa8', x: 575, y: 342 },
+];
+

@@ -49,7 +49,13 @@ export interface ControlPoint {
 - Composta originalmente por **8 pontos de controle**.
 - Conecta o ponto de encontro central (`x: 405, y: 410`) até o extremo sul da fronteira do MT (`x: 395, y: 550`).
 
-### 3. Trava de Junção Central Automática (Magnetic Junction)
+### 3. Divisória do Pará (`divPa`)
+- Composta por **9 pontos de controle** ajustáveis interativamente.
+- Corta o estado do Pará de norte a sul (da divisa com o AP até o limite com TO/MT), separando:
+  - **Lado Oeste (Esquerda da Linha):** Região atendida pelo consultor do Norte (Santarém, Itaituba, Altamira, Novo Progresso, Redenção) -> Pintada na cor azul da Região Norte (`#0091FF`).
+  - **Lado Leste (Direita da Linha):** Região não atendida (Belém, Marajó, etc.) -> **Não pintada**, renderizada na cor base neutra (`#1B2433`).
+
+### 4. Trava de Junção Central Automática (Magnetic Junction)
 Para evitar que as regiões se desconectem e causem buracos ou sobreposições gráficas no mapa:
 - O ponto inicial de `divOesteLeste[0]` é **travado matematicamente** ao nó central de `divNorte`.
 - Ao mover qualquer um desses nós no editor, o algoritmo recalcula a junção em tempo real para manter a continuidade topológica do polígono.
@@ -78,19 +84,25 @@ stateDiagram-v2
 ```
 
 ### Modos de Operação do Editor:
-1. **✋ Modo Mover:** Permite clicar e arrastar qualquer nó numerado na tela. A curva SVG é recalculada e re-renderizada a 60 FPS com aceleração de hardware.
-2. **➕ Modo Inserir:** Ao passar o mouse sobre a linha divisória, o cursor identifica o segmento mais próximo e insere um novo nó paramétrico na posição exata do clique.
-3. **🗑️ Modo Excluir:** Permite remover nós intermediários desnecessários sem romper a continuidade entre o início e o fim da fronteira.
-4. **🔄 Reset para Padrão:** Botão de emergência que restaura as coordenadas originais (`DEFAULT_DIV_NORTE` e `DEFAULT_DIV_OESTE_LESTE`).
+1. **🎯 Modo Pontos:** Permite clicar e arrastar qualquer nó numerado na tela (MT ou Pará). A curva SVG é recalculada e re-renderizada a 60 FPS com aceleração de hardware.
+2. **✋ Modo Mover Mapa (Pan):** Permite clicar e arrastar o mapa livremente em qualquer direção para visualizar diferentes áreas e limites territoriais. Também é possível arrastar segurando a **Barra de Espaço** ou usando o botão do meio do mouse.
+3. **➕ Modo Inserir:** Ao passar o mouse sobre a linha divisória, o cursor identifica o segmento mais próximo e insere um novo nó paramétrico na posição exata do clique.
+4. **🗑️ Modo Excluir:** Permite remover nós intermediários desnecessários sem romper a continuidade entre o início e o fim da fronteira.
+5. **🧭 Botões Direcionais e Zoom:** O widget flutuante no canto inferior esquerdo oferece botões `+`, `-`, setas direcionais `[◀] [▲/▼] [▶]` e `[↺ 1x]` para reposicionamento rápido.
+6. **📍 Filtro por Região/Estado:** No topo do editor é possível focar exclusivamente em `[🔵 Norte MT]`, `[🟢 Oeste]`, `[🟠 Leste]` ou `[📍 Pará (PA)]`.
+7. **🔄 Reset para Padrão:** Botão de emergência que restaura as coordenadas originais (`DEFAULT_DIV_NORTE`, `DEFAULT_DIV_OESTE_LESTE` e `DEFAULT_DIV_PA`).
+
 
 ---
 
 ## 🗺️ Renderização dos Estados Brasileiros
 
-Além do Mato Grosso, o mapa renderiza os demais estados da federação através de polígonos pré-computados (`brazilGeo.ts`), onde:
-- **Estados Atendidos:** São preenchidos com as cores dos respectivos consultores (ex.: Pará e Roraima em Azul do Norte; Rondônia e Acre em Verde do Oeste; Goiás, Tocantins, Minas Gerais e Bahia em Laranja do Leste).
+Além do Mato Grosso e do Pará, o mapa renderiza os demais estados da federação através de polígonos pré-computados (`brazilGeo.ts`), onde:
+- **Estados Atendidos:** São preenchidos com as cores dos respectivos consultores (ex.: Roraima em Azul do Norte; Rondônia e Acre em Verde do Oeste; Goiás, Tocantins, Minas Gerais e Bahia em Laranja do Leste).
+- **Pará (PA) e Mato Grosso (MT):** Possuem tratamento vetorial via `clipPath` permitindo subdivisões de cores e áreas neutras internas.
 - **Estados Neutros:** São renderizados em tom escuro discreto (`#17202D`) com borda suave (`#232E3E`), mantendo o foco total nas regiões de atuação.
 
 ---
 
 *Voltar para o [[00 - Visão Geral do Projeto|Índice Geral]]*
+

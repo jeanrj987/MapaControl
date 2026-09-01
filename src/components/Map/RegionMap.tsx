@@ -255,7 +255,7 @@ const StateBadge = memo<{
 });
 StateBadge.displayName = 'StateBadge';
 
-import { ControlPoint, DEFAULT_DIV_NORTE, DEFAULT_DIV_OESTE_LESTE } from '../../types/dividers';
+import { ControlPoint, DEFAULT_DIV_NORTE, DEFAULT_DIV_OESTE_LESTE, DEFAULT_DIV_PA } from '../../types/dividers';
 import { loadDividers, saveDividers, subscribeToMapConfigChanges } from '../../services/mapConfigService';
 
 export const RegionMap: React.FC<RegionMapProps> = ({
@@ -293,14 +293,14 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     };
   }, []);
 
-  // Live MT Dividers Editor State (Drag & Drop Points on Map)
+  // Live Dividers Editor State (Drag & Drop Points on Map for MT and PA)
   const [liveEditorMode, setLiveEditorMode] = useState(isLiveEditorActive ?? false);
 
   useEffect(() => {
     if (isLiveEditorActive !== undefined) {
       setLiveEditorMode(isLiveEditorActive);
       if (!isLiveEditorActive) {
-        saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current);
+        saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current, latestDivPaRef.current);
       }
     }
   }, [isLiveEditorActive]);
@@ -321,32 +321,53 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     return DEFAULT_DIV_OESTE_LESTE;
   });
 
+  const [divPa, setDivPa] = useState<ControlPoint[]>(() => {
+    try {
+      const saved = localStorage.getItem('mapa_live_div_pa');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_DIV_PA;
+  });
+
   const latestDivNorteRef = useRef<ControlPoint[]>(divNorte);
   const latestDivOesteLesteRef = useRef<ControlPoint[]>(divOesteLeste);
+  const latestDivPaRef = useRef<ControlPoint[]>(divPa);
+
   useEffect(() => {
     latestDivNorteRef.current = divNorte;
   }, [divNorte]);
   useEffect(() => {
     latestDivOesteLesteRef.current = divOesteLeste;
   }, [divOesteLeste]);
+  useEffect(() => {
+    latestDivPaRef.current = divPa;
+  }, [divPa]);
 
   const handleSetLiveEditorMode = useCallback((valOrFn: boolean | ((prev: boolean) => boolean)) => {
     const next = typeof valOrFn === 'function' ? valOrFn(liveEditorMode) : valOrFn;
     setLiveEditorMode(next);
     if (!next) {
-      saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current);
+      saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current, latestDivPaRef.current);
     }
     onToggleLiveEditor?.(next);
   }, [liveEditorMode, onToggleLiveEditor]);
 
   const [liveEditorSaveMsg, setLiveEditorSaveMsg] = useState('');
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [editorTool, setEditorTool] = useState<'move' | 'add' | 'delete'>('move');
-  const [activeEditorRegion, setActiveEditorRegion] = useState<'all' | 'norte' | 'oeste' | 'leste'>('all');
+  const [editorTool, setEditorTool] = useState<'move' | 'pan' | 'add' | 'delete'>('move');
+  const [activeEditorRegion, setActiveEditorRegion] = useState<'all' | 'norte' | 'oeste' | 'leste' | 'pa'>('all');
 
-  // Global Map Zoom & Pan State (+ / - Controls)
+  // Global Map Zoom & Pan State (+ / - Controls & Pan Mode)
   const [mapZoom, setMapZoom] = useState<number>(1.0);
   const [mapPan, setMapPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef<{ clientX: number; clientY: number; startPanX: number; startPanY: number } | null>(null);
+  const latestMapPanRef = useRef(mapPan);
+  useEffect(() => {
+    latestMapPanRef.current = mapPan;
+  }, [mapPan]);
 
   const handleZoomIn = useCallback(() => {
     setMapZoom((z) => Math.min(8.0, Math.round((z + 0.5) * 10) / 10));
@@ -360,6 +381,32 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     setMapZoom(1.0);
     setMapPan({ x: 0, y: 0 });
   }, []);
+
+  const handlePanStep = useCallback((dx: number, dy: number) => {
+    setMapPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+  }, []);
+
+  const handleMapMouseDown = useCallback((e: React.MouseEvent) => {
+    // If middle click (button 1) OR spacebar is pressed OR editorTool is 'pan' OR clicking empty background in liveEditorMode:
+    if (
+      e.button === 1 ||
+      isSpacePressed ||
+      editorTool === 'pan' ||
+      (liveEditorMode && e.button === 0 && (e.target as SVGElement)?.id === 'tech-grid-bg')
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      isPanningRef.current = true;
+      setIsPanning(true);
+      panStartRef.current = {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        startPanX: latestMapPanRef.current.x,
+        startPanY: latestMapPanRef.current.y,
+      };
+    }
+  }, [isSpacePressed, editorTool, liveEditorMode]);
+
 
 
 
@@ -379,9 +426,9 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     };
   }, []);
 
-  const draggingPointRef = useRef<{ list: 'norte' | 'oeste-leste'; id: string } | null>(null);
+  const draggingPointRef = useRef<{ list: 'norte' | 'oeste-leste' | 'pa'; id: string } | null>(null);
 
-  const deletePoint = useCallback((list: 'norte' | 'oeste-leste', id: string) => {
+  const deletePoint = useCallback((list: 'norte' | 'oeste-leste' | 'pa', id: string) => {
     if (list === 'norte') {
       setDivNorte((prev) => {
         if (prev.length <= 4) {
@@ -390,12 +437,12 @@ export const RegionMap: React.FC<RegionMapProps> = ({
           return prev;
         }
         const next = prev.filter((p) => p.id !== id);
-        saveDividers(next, divOesteLeste);
+        saveDividers(next, divOesteLeste, divPa);
         setLiveEditorSaveMsg('🗑️ Ponto removido!');
         setTimeout(() => setLiveEditorSaveMsg(''), 2000);
         return next;
       });
-    } else {
+    } else if (list === 'oeste-leste') {
       setDivOesteLeste((prev) => {
         if (prev.length <= 2) {
           setLiveEditorSaveMsg('⚠️ Mínimo de 2 pontos');
@@ -403,16 +450,29 @@ export const RegionMap: React.FC<RegionMapProps> = ({
           return prev;
         }
         const next = prev.filter((p) => p.id !== id);
-        saveDividers(divNorte, next);
+        saveDividers(divNorte, next, divPa);
+        setLiveEditorSaveMsg('🗑️ Ponto removido!');
+        setTimeout(() => setLiveEditorSaveMsg(''), 2000);
+        return next;
+      });
+    } else {
+      setDivPa((prev) => {
+        if (prev.length <= 2) {
+          setLiveEditorSaveMsg('⚠️ Mínimo de 2 pontos');
+          setTimeout(() => setLiveEditorSaveMsg(''), 2500);
+          return prev;
+        }
+        const next = prev.filter((p) => p.id !== id);
+        saveDividers(divNorte, divOesteLeste, next);
         setLiveEditorSaveMsg('🗑️ Ponto removido!');
         setTimeout(() => setLiveEditorSaveMsg(''), 2000);
         return next;
       });
     }
-  }, [divNorte, divOesteLeste]);
+  }, [divNorte, divOesteLeste, divPa]);
 
-  const insertPointAtCoords = useCallback((list: 'norte' | 'oeste-leste', x: number, y: number) => {
-    const newId = (list === 'norte' ? 'n_' : 'ol_') + Date.now();
+  const insertPointAtCoords = useCallback((list: 'norte' | 'oeste-leste' | 'pa', x: number, y: number) => {
+    const newId = (list === 'norte' ? 'n_' : list === 'oeste-leste' ? 'ol_' : 'pa_') + Date.now();
     if (list === 'norte') {
       setDivNorte((prev) => {
         let bestIdx = 1;
@@ -427,12 +487,12 @@ export const RegionMap: React.FC<RegionMapProps> = ({
           }
         }
         const next = [...prev.slice(0, bestIdx), { id: newId, x, y }, ...prev.slice(bestIdx)];
-        saveDividers(next, divOesteLeste);
+        saveDividers(next, divOesteLeste, divPa);
         setLiveEditorSaveMsg('➕ Ponto inserido!');
         setTimeout(() => setLiveEditorSaveMsg(''), 2000);
         return next;
       });
-    } else {
+    } else if (list === 'oeste-leste') {
       setDivOesteLeste((prev) => {
         let bestIdx = 1;
         let minD = Infinity;
@@ -446,15 +506,34 @@ export const RegionMap: React.FC<RegionMapProps> = ({
           }
         }
         const next = [...prev.slice(0, bestIdx), { id: newId, x, y }, ...prev.slice(bestIdx)];
-        saveDividers(divNorte, next);
+        saveDividers(divNorte, next, divPa);
+        setLiveEditorSaveMsg('➕ Ponto inserido!');
+        setTimeout(() => setLiveEditorSaveMsg(''), 2000);
+        return next;
+      });
+    } else {
+      setDivPa((prev) => {
+        let bestIdx = 1;
+        let minD = Infinity;
+        for (let i = 0; i < prev.length - 1; i++) {
+          const midX = (prev[i].x + prev[i + 1].x) / 2;
+          const midY = (prev[i].y + prev[i + 1].y) / 2;
+          const d = Math.hypot(x - midX, y - midY);
+          if (d < minD) {
+            minD = d;
+            bestIdx = i + 1;
+          }
+        }
+        const next = [...prev.slice(0, bestIdx), { id: newId, x, y }, ...prev.slice(bestIdx)];
+        saveDividers(divNorte, divOesteLeste, next);
         setLiveEditorSaveMsg('➕ Ponto inserido!');
         setTimeout(() => setLiveEditorSaveMsg(''), 2000);
         return next;
       });
     }
-  }, [divNorte, divOesteLeste]);
+  }, [divNorte, divOesteLeste, divPa]);
 
-  const handlePointMouseDown = useCallback((list: 'norte' | 'oeste-leste', id: string, e: React.MouseEvent) => {
+  const handlePointMouseDown = useCallback((list: 'norte' | 'oeste-leste' | 'pa', id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     if (editorTool === 'delete') {
@@ -464,13 +543,13 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     draggingPointRef.current = { list, id };
   }, [editorTool, deletePoint]);
 
-  const handleLineDoubleClick = useCallback((list: 'norte' | 'oeste-leste', e: React.MouseEvent) => {
+  const handleLineDoubleClick = useCallback((list: 'norte' | 'oeste-leste' | 'pa', e: React.MouseEvent) => {
     e.stopPropagation();
     const { x, y } = getSvgCoords(e);
     insertPointAtCoords(list, x, y);
   }, [getSvgCoords, insertPointAtCoords]);
 
-  const handlePointContextMenu = useCallback((list: 'norte' | 'oeste-leste', id: string, e: React.MouseEvent) => {
+  const handlePointContextMenu = useCallback((list: 'norte' | 'oeste-leste' | 'pa', id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     deletePoint(list, id);
@@ -478,9 +557,13 @@ export const RegionMap: React.FC<RegionMapProps> = ({
 
   // Carrega divisas do Supabase na inicialização e assina Realtime
   useEffect(() => {
-    loadDividers().then(({ divNorte: loadedNorte, divOesteLeste: loadedOL }) => {
+    loadDividers().then(({ divNorte: loadedNorte, divOesteLeste: loadedOL, divPa: loadedPA }) => {
       setDivNorte(loadedNorte);
       setDivOesteLeste(loadedOL);
+      if (loadedPA) {
+        setDivPa(loadedPA);
+        latestDivPaRef.current = loadedPA;
+      }
       latestDivNorteRef.current = loadedNorte;
       latestDivOesteLesteRef.current = loadedOL;
     });
@@ -489,6 +572,10 @@ export const RegionMap: React.FC<RegionMapProps> = ({
       (newDividers) => {
         setDivNorte(newDividers.divNorte);
         setDivOesteLeste(newDividers.divOesteLeste);
+        if (newDividers.divPa) {
+          setDivPa(newDividers.divPa);
+          latestDivPaRef.current = newDividers.divPa;
+        }
         latestDivNorteRef.current = newDividers.divNorte;
         latestDivOesteLesteRef.current = newDividers.divOesteLeste;
       },
@@ -502,6 +589,23 @@ export const RegionMap: React.FC<RegionMapProps> = ({
 
   useEffect(() => {
     const handleWindowMouseMove = (e: MouseEvent) => {
+      // 1. Handle Map Panning
+      if (isPanningRef.current && panStartRef.current) {
+        const dx = e.clientX - panStartRef.current.clientX;
+        const dy = e.clientY - panStartRef.current.clientY;
+
+        const containerWidth = containerRef.current?.clientWidth || 600;
+        const effectiveZoom = mapZoom > 0 ? mapZoom : 1;
+        const ratio = 900 / (containerWidth * effectiveZoom);
+
+        const newPanX = panStartRef.current.startPanX - (dx * ratio);
+        const newPanY = panStartRef.current.startPanY - (dy * ratio);
+
+        setMapPan({ x: Math.round(newPanX), y: Math.round(newPanY) });
+        return;
+      }
+
+      // 2. Handle Dragging Points
       if (!draggingPointRef.current) return;
       const { x, y } = getSvgCoords(e);
       const { list, id } = draggingPointRef.current;
@@ -512,19 +616,31 @@ export const RegionMap: React.FC<RegionMapProps> = ({
           latestDivNorteRef.current = next;
           return next;
         });
-      } else {
+      } else if (list === 'oeste-leste') {
         setDivOesteLeste(prev => {
           const next = prev.map(p => (p.id === id ? { ...p, x, y } : p));
           latestDivOesteLesteRef.current = next;
+          return next;
+        });
+      } else {
+        setDivPa(prev => {
+          const next = prev.map(p => (p.id === id ? { ...p, x, y } : p));
+          latestDivPaRef.current = next;
           return next;
         });
       }
     };
 
     const handleWindowMouseUp = () => {
+      if (isPanningRef.current) {
+        isPanningRef.current = false;
+        setIsPanning(false);
+        panStartRef.current = null;
+      }
+
       if (draggingPointRef.current) {
         draggingPointRef.current = null;
-        saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current);
+        saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current, latestDivPaRef.current);
         setLiveEditorSaveMsg('💾 Salvo no Banco');
         setTimeout(() => setLiveEditorSaveMsg(''), 2000);
       }
@@ -536,11 +652,12 @@ export const RegionMap: React.FC<RegionMapProps> = ({
       window.removeEventListener('mousemove', handleWindowMouseMove);
       window.removeEventListener('mouseup', handleWindowMouseUp);
     };
-  }, [getSvgCoords]);
+  }, [getSvgCoords, mapZoom]);
+
 
   const handleSaveToCloud = useCallback(async () => {
     setLiveEditorSaveMsg('⏳ Salvando na Nuvem...');
-    const ok = await saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current);
+    const ok = await saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current, latestDivPaRef.current);
     if (ok) {
       setLiveEditorSaveMsg('✅ Salvo na Nuvem com Sucesso!');
     } else {
@@ -552,7 +669,8 @@ export const RegionMap: React.FC<RegionMapProps> = ({
   const handleResetDividers = useCallback(() => {
     setDivNorte(DEFAULT_DIV_NORTE);
     setDivOesteLeste(DEFAULT_DIV_OESTE_LESTE);
-    saveDividers(DEFAULT_DIV_NORTE, DEFAULT_DIV_OESTE_LESTE);
+    setDivPa(DEFAULT_DIV_PA);
+    saveDividers(DEFAULT_DIV_NORTE, DEFAULT_DIV_OESTE_LESTE, DEFAULT_DIV_PA);
     setLiveEditorSaveMsg('↺ Divisas Restauradas');
     setTimeout(() => setLiveEditorSaveMsg(''), 2000);
   }, []);
@@ -561,11 +679,14 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     const code = `// Divisão Norte MT:\n` +
       divNorte.map(p => `  { x: ${p.x}, y: ${p.y} }`).join(',\n') +
       `\n\n// Divisão Oeste/Leste MT:\n` +
-      divOesteLeste.map(p => `  { x: ${p.x}, y: ${p.y} }`).join(',\n');
+      divOesteLeste.map(p => `  { x: ${p.x}, y: ${p.y} }`).join(',\n') +
+      `\n\n// Divisão Pará (PA):\n` +
+      divPa.map(p => `  { x: ${p.x}, y: ${p.y} }`).join(',\n');
     navigator.clipboard.writeText(code);
     setLiveEditorSaveMsg('✅ Coordenadas Copiadas!');
     setTimeout(() => setLiveEditorSaveMsg(''), 3000);
-  }, [divNorte, divOesteLeste]);
+  }, [divNorte, divOesteLeste, divPa]);
+
   const handleSnapJunction = useCallback(() => {
     const n = latestDivNorteRef.current;
     const ol = latestDivOesteLesteRef.current;
@@ -585,7 +706,7 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     const nextOL = [{ ...ol[0], x: jp.x, y: jp.y }, ...ol.slice(1)];
     setDivOesteLeste(nextOL);
     latestDivOesteLesteRef.current = nextOL;
-    saveDividers(n, nextOL);
+    saveDividers(n, nextOL, latestDivPaRef.current);
     setLiveEditorSaveMsg('🧲 Junção 100% alinhada e salva!');
     setTimeout(() => setLiveEditorSaveMsg(''), 2500);
   }, []);
@@ -637,22 +758,54 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     };
   }, [divNorte, divOesteLeste]);
 
+  const paPaths = useMemo(() => {
+    const pa = divPa;
+    if (!pa || pa.length === 0) {
+      return { westD: '', eastD: '', lineD: '' };
+    }
+
+    // West (Attended part - Norte): Bounded on the right by divPa
+    const westD = `M 300 50 L ${pa[0].x} 50 L ${pa.map(p => `${p.x} ${p.y}`).join(' L ')} L ${pa[pa.length - 1].x} 380 L 300 380 Z`;
+
+    // East (Unattended part - Neutral / Não Pintada): Bounded on the left by divPa
+    const eastD = `M ${pa[0].x} 50 L 630 50 L 630 380 L ${pa[pa.length - 1].x} 380 L ${pa.slice().reverse().map(p => `${p.x} ${p.y}`).join(' L ')} Z`;
+
+    const lineD = 'M ' + pa.map(p => `${p.x} ${p.y}`).join(' L ');
+
+    return { westD, eastD, lineD };
+  }, [divPa]);
+
+
 
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        e.preventDefault();
+        setIsSpacePressed(true);
+      }
       if (e.key === 'Escape') {
         onSelectRegion(null);
         onSelectState(null);
       }
     };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+    };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [onSelectRegion, onSelectState]);
 
   const states = useMemo(() => getAllBrazilStates(), []);
   const cities = useMemo(() => getProjectedCities(), []);
   const mtState = useMemo(() => states.find((s) => s.uf === 'MT'), [states]);
+  const paState = useMemo(() => states.find((s) => s.uf === 'PA'), [states]);
 
   const selectedCityObj = useMemo(() => {
     if (!selectedCityName) return null;
@@ -689,13 +842,14 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     return {
       transform: 'translate3d(' + tx + '%, ' + ty + '%, 0) scale(' + target.scale + ')',
       transformOrigin: '50% 50%',
-      transition: 'transform 0.28s cubic-bezier(0.2, 0, 0, 1)',
+      transition: isPanning ? 'none' : 'transform 0.28s cubic-bezier(0.2, 0, 0, 1)',
       willChange: 'transform',
       backfaceVisibility: 'hidden' as const,
       WebkitBackfaceVisibility: 'hidden' as const,
       transformStyle: 'preserve-3d' as const,
     };
-  }, [selectedRegionId, liveEditorMode, mapZoom, mapPan]);
+  }, [selectedRegionId, liveEditorMode, mapZoom, mapPan, isPanning]);
+
 
   const handleCityHover = useCallback((city: ProjectedCity, e: React.MouseEvent) => {
     setHoveredCity(city);
@@ -754,8 +908,9 @@ export const RegionMap: React.FC<RegionMapProps> = ({
 
       <div
         ref={containerRef}
-        className='relative w-full max-w-2xl aspect-square flex items-center justify-center p-1 overflow-hidden'
+        className={'relative w-full max-w-2xl aspect-square flex items-center justify-center p-1 overflow-hidden ' + (isPanning ? 'cursor-grabbing' : (isSpacePressed || editorTool === 'pan') ? 'cursor-grab' : '')}
         style={{ contain: 'paint' }}
+        onMouseDown={handleMapMouseDown}
         onWheel={(e) => {
           if (liveEditorMode || e.ctrlKey) {
             e.preventDefault();
@@ -764,8 +919,8 @@ export const RegionMap: React.FC<RegionMapProps> = ({
           }
         }}
       >
-        {/* Sleek Floating Zoom Pill Widget (Positioned in Bottom-Left Empty Space, Never Obstructs States) */}
-        <div className='absolute bottom-3 left-3 z-30 flex items-center gap-1.5 bg-[#0B121E]/90 border border-[#2B384E] px-2 py-1 rounded-full shadow-2xl select-none'>
+        {/* Sleek Floating Zoom & Pan Pill Widget */}
+        <div className='absolute bottom-3 left-3 z-30 flex items-center gap-1.5 bg-[#0B121E]/90 border border-[#2B384E] px-2 py-1 rounded-full shadow-2xl select-none backdrop-blur-md'>
           <button
             onClick={handleZoomIn}
             className='w-7 h-7 rounded-full bg-slate-800 hover:bg-sky-600 text-white font-bold text-base flex items-center justify-center transition-all shadow active:scale-95'
@@ -786,11 +941,47 @@ export const RegionMap: React.FC<RegionMapProps> = ({
             -
           </button>
 
+          {/* Quick Directional Pan Controls */}
+          {(liveEditorMode || mapZoom > 1.0 || mapPan.x !== 0 || mapPan.y !== 0) && (
+            <div className='flex items-center gap-0.5 border-l border-slate-700/80 pl-1.5 ml-0.5'>
+              <button
+                onClick={(e) => { e.stopPropagation(); handlePanStep(35, 0); }}
+                className='w-6 h-6 rounded-full bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition-all'
+                title='Mover mapa para a Esquerda'
+              >
+                ◀
+              </button>
+              <div className='flex flex-col gap-0.5'>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handlePanStep(0, 35); }}
+                  className='w-5 h-3 rounded bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white flex items-center justify-center text-[7px] transition-all'
+                  title='Mover mapa para Cima'
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handlePanStep(0, -35); }}
+                  className='w-5 h-3 rounded bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white flex items-center justify-center text-[7px] transition-all'
+                  title='Mover mapa para Baixo'
+                >
+                  ▼
+                </button>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); handlePanStep(-35, 0); }}
+                className='w-6 h-6 rounded-full bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition-all'
+                title='Mover mapa para a Direita'
+              >
+                ▶
+              </button>
+            </div>
+          )}
+
           {(mapZoom !== 1.0 || mapPan.x !== 0 || mapPan.y !== 0) && (
             <button
-              onClick={handleResetZoom}
+              onClick={(e) => { e.stopPropagation(); handleResetZoom(); }}
               className='ml-1 px-2.5 py-1 rounded-full bg-amber-600 hover:bg-amber-500 text-white text-[10.5px] font-bold flex items-center gap-1 transition-all shadow active:scale-95 ring-1 ring-amber-400/50'
-              title='Resetar Zoom (1.0x) e Centralizar'
+              title='Resetar Posição e Zoom (1.0x)'
             >
               <span>↺</span>
               <span>1x</span>
@@ -816,13 +1007,26 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                   <path d={mtState.path} />
                 </clipPath>
               )}
+              {paState && (
+                <clipPath id='clip-state-PA'>
+                  <path d={paState.path} />
+                </clipPath>
+              )}
             </defs>
 
-            <rect width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill='url(#tech-grid)' pointerEvents='none' />
+            <rect
+              id='tech-grid-bg'
+              width={MAP_VIEWBOX_WIDTH}
+              height={MAP_VIEWBOX_HEIGHT}
+              fill='url(#tech-grid)'
+              className={(isPanning || isSpacePressed || editorTool === 'pan') ? 'cursor-grab' : liveEditorMode ? 'cursor-default' : 'pointer-events-none'}
+              onMouseDown={handleMapMouseDown}
+            />
+
 
             <g id='states-fill-layer'>
               {states.map((st) => {
-                if (st.uf === 'MT') return null;
+                if (st.uf === 'MT' || st.uf === 'PA') return null;
                 return (
                   <StatePolygon
                     key={st.uf}
@@ -867,6 +1071,27 @@ export const RegionMap: React.FC<RegionMapProps> = ({
               </g>
             )}
 
+            {paState && (
+              <g id='state-PA-group' className='cursor-pointer' onClick={() => onSelectState(paState)}>
+                <g clipPath='url(#clip-state-PA)'>
+                  {/* Parte Atendida / Oeste do Pará (Pintada na cor do Norte) */}
+                  <path
+                    d={paPaths.westD}
+                    fill={COLOR_NORTE}
+                    fillOpacity={isNorteActive ? (isAllRegions ? 0.35 : 0.55) : 0.20}
+                    className='transition-colors duration-300'
+                  />
+                  {/* Parte Não Atendida / Leste do Pará (Direita da Linha Vermelha - NÃO PINTADA / Neutra) */}
+                  <path
+                    d={paPaths.eastD}
+                    fill={COLOR_BASE_STATE}
+                    fillOpacity={0.85}
+                    className='transition-colors duration-300'
+                  />
+                </g>
+              </g>
+            )}
+
             <g id='states-borders-layer' className='pointer-events-none'>
               {states.map((st) => (
                 <path key={'border-' + st.uf} d={st.path} className={selectedStateUf === st.uf ? 'state-border-line-selected' : 'state-border-line'} />
@@ -893,7 +1118,21 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                   />
                 </g>
               )}
+              {paState && (
+                <g clipPath='url(#clip-state-PA)'>
+                  <path
+                    d={paPaths.lineD}
+                    fill='none'
+                    stroke={liveEditorMode ? '#38bdf8' : '#334155'}
+                    strokeWidth={liveEditorMode ? 2.5 : 1}
+                    strokeDasharray={liveEditorMode ? '6 4' : '4 3'}
+                    strokeOpacity={liveEditorMode ? 1 : 0.7}
+                    vectorEffect='non-scaling-stroke'
+                  />
+                </g>
+              )}
             </g>
+
 
             {/* Cities Markers Layer (Static & Visible during Live Editor Mode with pointer-events-none) */}
             <g
@@ -949,6 +1188,7 @@ export const RegionMap: React.FC<RegionMapProps> = ({
 
               const showNorteLine = activeEditorRegion === 'all' || activeEditorRegion === 'norte' || activeEditorRegion === 'oeste' || activeEditorRegion === 'leste';
               const showVerticalLine = activeEditorRegion === 'all' || activeEditorRegion === 'oeste' || activeEditorRegion === 'leste';
+              const showPaLine = activeEditorRegion === 'all' || activeEditorRegion === 'pa' || activeEditorRegion === 'norte';
 
               return (
                 <g id='live-divider-handles-layer'>
@@ -985,6 +1225,22 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                       onDoubleClick={(e) => handleLineDoubleClick('oeste-leste', e)}
                     />
                   )}
+                  {showPaLine && (
+                    <path
+                      d={paPaths.lineD}
+                      fill='none'
+                      stroke='transparent'
+                      strokeWidth={Math.max(16, 32 / currentScale)}
+                      className={editorTool === 'add' ? 'cursor-crosshair' : 'cursor-copy'}
+                      onClick={(e) => {
+                        if (editorTool === 'add') {
+                          const { x, y } = getSvgCoords(e);
+                          insertPointAtCoords('pa', x, y);
+                        }
+                      }}
+                      onDoubleClick={(e) => handleLineDoubleClick('pa', e)}
+                    />
+                  )}
 
                   {/* Norte Divider Points */}
                   {divNorte.map((p, idx) => {
@@ -996,6 +1252,7 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                     // Filter points according to activeEditorRegion
                     if (activeEditorRegion === 'oeste' && idx > junctionIdx) return null;
                     if (activeEditorRegion === 'leste' && idx < junctionIdx) return null;
+                    if (activeEditorRegion === 'pa') return null;
 
                     const pointColor = isJunction
                       ? '#38bdf8'
@@ -1160,6 +1417,78 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                       </g>
                     );
                   })}
+
+                  {/* Pará (PA) Divider Points */}
+                  {showPaLine && (activeEditorRegion === 'all' || activeEditorRegion === 'pa' || activeEditorRegion === 'norte') && divPa.map((p, idx) => {
+                    const isHovered = hoveredNodeId === p.id;
+                    const isEnd = idx === 0 || idx === divPa.length - 1;
+                    const showLabel = isHovered || isEnd;
+
+                    const pointColor = isHovered ? '#38bdf8' : '#0ea5e9';
+                    const pointLabel = idx === 0 ? 'PA Topo' : idx === divPa.length - 1 ? 'PA Base' : `PA${idx}`;
+
+                    return (
+                      <g
+                        key={p.id}
+                        transform={`translate(${p.x}, ${p.y})`}
+                        className={'select-none group ' + (editorTool === 'delete' ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing')}
+                        onMouseDown={(e) => handlePointMouseDown('pa', p.id, e)}
+                        onContextMenu={(e) => handlePointContextMenu('pa', p.id, e)}
+                        onMouseEnter={() => setHoveredNodeId(p.id)}
+                        onMouseLeave={() => setHoveredNodeId(null)}
+                      >
+                        {/* Large Invisible Hit Target for Effortless Mouse Grab */}
+                        <circle r={hitR} fill='transparent' />
+                        {isHovered && (
+                          <circle r={pingR} fill={editorTool === 'delete' ? '#ef4444' : pointColor} fillOpacity='0.4' className='animate-ping' />
+                        )}
+                        <circle
+                          r={isHovered ? nodeR * 1.4 : nodeR}
+                          fill={editorTool === 'delete' ? '#ef4444' : pointColor}
+                          stroke='#ffffff'
+                          strokeWidth={strokeW}
+                          className='transition-all duration-150 shadow-lg'
+                          style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }}
+                        />
+                        {showLabel && (
+                          <text
+                            y={labelY}
+                            textAnchor='middle'
+                            fill='#ffffff'
+                            fontSize={fontSize}
+                            fontWeight='bold'
+                            fontFamily='monospace'
+                            className='pointer-events-none select-none drop-shadow font-mono bg-black/80'
+                          >
+                            {pointLabel}
+                          </text>
+                        )}
+                        {/* Instant Delete Button on Hover */}
+                        {isHovered && !isEnd && (
+                          <g
+                            transform={`translate(${nodeR * 1.9}, ${-nodeR * 1.9})`}
+                            className='cursor-pointer group/del'
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              deletePoint('pa', p.id);
+                            }}
+                          >
+                            <circle r={delBtnR} fill='#ef4444' stroke='#ffffff' strokeWidth={strokeW} className='shadow' />
+                            <text
+                              y={delBtnR * 0.4}
+                              textAnchor='middle'
+                              fill='#ffffff'
+                              fontSize={delBtnR * 1.4}
+                              fontWeight='bold'
+                            >
+                              ×
+                            </text>
+                          </g>
+                        )}
+                      </g>
+                    );
+                  })}
                 </g>
               );
             })()}
@@ -1217,9 +1546,9 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                 setMapZoom(2.8);
               }}
               className={'px-2.5 py-0.5 rounded-full text-xs font-bold transition-all flex items-center gap-1 ' + (activeEditorRegion === 'norte' ? 'bg-sky-600 text-white shadow' : 'text-sky-400 hover:text-sky-300')}
-              title='Editar somente a divisa da Região Norte'
+              title='Editar somente a divisa da Região Norte MT'
             >
-              🔵 Norte
+              🔵 Norte MT
             </button>
             <button
               onClick={() => {
@@ -1243,18 +1572,37 @@ export const RegionMap: React.FC<RegionMapProps> = ({
             >
               🟠 Leste
             </button>
+            <button
+              onClick={() => {
+                setActiveEditorRegion('pa');
+                setMapPan({ x: 0, y: -90 });
+                setMapZoom(2.6);
+              }}
+              className={'px-2.5 py-0.5 rounded-full text-xs font-bold transition-all flex items-center gap-1 ' + (activeEditorRegion === 'pa' ? 'bg-cyan-600 text-white shadow' : 'text-cyan-400 hover:text-cyan-300')}
+              title='Editar divisória do Pará (PA)'
+            >
+              📍 Pará (PA)
+            </button>
           </div>
+
 
           <div className='w-px h-4 bg-slate-700 shrink-0' />
 
-          {/* Tool Modes: Move / Add / Delete */}
+          {/* Tool Modes: Move Points / Pan Map / Add / Delete */}
           <div className='flex items-center bg-slate-900/90 p-0.5 rounded-full border border-slate-700/80 shrink-0'>
             <button
               onClick={() => setEditorTool('move')}
               className={'px-2 py-0.5 rounded-full text-xs font-bold transition-all flex items-center gap-1 ' + (editorTool === 'move' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-white')}
-              title='Modo Mover: Arraste os pontos com o mouse'
+              title='Modo Pontos: Arraste as bolinhas das divisas com o mouse'
             >
-              ✋ Mover
+              🎯 Pontos
+            </button>
+            <button
+              onClick={() => setEditorTool('pan')}
+              className={'px-2 py-0.5 rounded-full text-xs font-bold transition-all flex items-center gap-1 ' + (editorTool === 'pan' ? 'bg-indigo-600 text-white shadow ring-1 ring-indigo-300' : 'text-slate-400 hover:text-white')}
+              title='Modo Mover Mapa: Clique e arraste para navegar pelo mapa (ou segure a Barra de Espaço)'
+            >
+              ✋ Mover Mapa
             </button>
             <button
               onClick={() => setEditorTool('add')}
@@ -1271,6 +1619,7 @@ export const RegionMap: React.FC<RegionMapProps> = ({
               🗑️ Excluir
             </button>
           </div>
+
 
           <div className='w-px h-4 bg-slate-700 shrink-0' />
 
