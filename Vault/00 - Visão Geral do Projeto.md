@@ -40,6 +40,7 @@ Navegue pelas notas técnicas e operacionais deste cofre:
 | 07 | [[07 - Guia do Usuário e Operação do Painel]] | Manual de uso do painel, filtros por estado/cidade, ajuste de tempos de TV e editor de divisas. |
 | 08 | [[08 - Guia do Desenvolvedor, Setup e Deploy]] | Guia de instalação, scripts npm, variáveis de ambiente, schema SQL do Supabase e deploy em produção. |
 | 09 | [[09 - Autenticação e Controle de Acesso]] | Login via Supabase Auth restringindo a edição de divisas e tempos de TV a usuários autorizados. |
+| 10 | [[10 - Testes Automatizados (Vitest)]] | Setup de testes, o que está coberto hoje (geometria, clima, fallback sem Supabase, gate de login) e candidatos futuros. |
 
 ---
 

@@ -11,6 +11,7 @@ import { LoginModal } from './components/UI/LoginModal';
 import { Clock, Settings, Lock, LogOut } from './components/UI/Icons';
 import { loadTvTimers, saveTvTimers, subscribeToMapConfigChanges } from './services/mapConfigService';
 import { getCurrentSession, subscribeToAuthChanges, signOut, Session } from './services/authService';
+import { getNextInRotation } from './utils/geometry';
 
 const ROTATION_SEQUENCE: (RegiaoId | null)[] = ['norte', 'sorriso', 'oeste', 'leste', null];
 
@@ -175,11 +176,7 @@ export function App() {
 
   // Próxima região no modo TV
   const handleNextTvRegion = useCallback(() => {
-    setSelectedRegionId((curr) => {
-      const currIdx = ROTATION_SEQUENCE.indexOf(curr);
-      const nextIdx = (currIdx + 1) % ROTATION_SEQUENCE.length;
-      return ROTATION_SEQUENCE[nextIdx];
-    });
+    setSelectedRegionId((curr) => getNextInRotation(ROTATION_SEQUENCE, curr));
     setSelectedState(null);
     setSelectedCityName(null);
   }, []);

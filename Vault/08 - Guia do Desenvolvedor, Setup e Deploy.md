@@ -49,6 +49,8 @@ O servidor de desenvolvimento do Vite iniciará em `http://localhost:5173`.
 | `npm run dev` | Inicia o servidor de desenvolvimento com Hot Module Replacement (HMR). |
 | `npm run build` | Executa o verificador de tipos TypeScript (`tsc`) e compila o bundle de produção com o Vite para a pasta `dist/`. |
 | `npm run preview` | Serve o bundle compilado da pasta `dist/` localmente para validação pré-deploy. |
+| `npm run test` | Roda a suíte de testes automatizados (Vitest) uma vez e encerra. Use antes de commitar. |
+| `npm run test:watch` | Roda os testes em modo observador, re-executando ao salvar arquivos. |
 
 ---
 

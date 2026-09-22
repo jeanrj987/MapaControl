@@ -15,6 +15,7 @@
 | **BaaS / Realtime** | **Supabase (PostgreSQL + Realtime)** | Persistência na nuvem de nós vetoriais e tempos da TV com sincronização WebSockets em tempo real. |
 | **Meteorologia** | **Open-Meteo REST API** | Previsão do tempo pública e sem rate-limits abusivos para os municípios brasileiros. |
 | **Ícones** | **Lucide Icons** | Conjunto moderno e leve de ícones SVG. |
+| **Testes** | **Vitest + Testing Library** | Testes unitários e de componente reaproveitando a config do Vite. Detalhes em [[10 - Testes Automatizados (Vitest)]]. |
 
 ---
 
@@ -48,6 +49,10 @@ c:\Projetos\Mapa\
 │   ├── types\
 │   │   ├── dividers.ts                # Tipos e nós padrão das divisas vetoriais
 │   │   └── region.ts                  # Interfaces de Região, Equipe, Clientes e Clima
+│   ├── utils\
+│   │   └── geometry.ts                # Funções puras testáveis (busca de ponto mais próximo, rotação cíclica)
+│   ├── test\
+│   │   └── setup.ts                   # Setup global do Vitest (matchers do jest-dom)
 │   ├── App.tsx                        # Orquestrador central de estado da aplicação
 │   ├── index.css                      # Estilos globais, tema dark e regras zero-scroll
 │   └── main.tsx                       # Ponto de entrada do React

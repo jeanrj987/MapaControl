@@ -11,6 +11,7 @@ import {
   MAP_VIEWBOX_HEIGHT
 } from '../../data/brazilGeo';
 import { Compass, Sparkles, Users, Briefcase } from '../UI/Icons';
+import { findClosestPointIndex } from '../../utils/geometry';
 
 
 interface RegionMapProps {
@@ -770,17 +771,8 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     const n = latestDivNorteRef.current;
     const ol = latestDivOesteLesteRef.current;
     if (n.length === 0 || ol.length === 0) return;
-    let bestIdx = 0;
-    let minD = Infinity;
-    const targetX = ol[0]?.x ?? 380;
-    const targetY = ol[0]?.y ?? 350;
-    for (let i = 0; i < n.length; i++) {
-      const d = Math.hypot(n[i].x - targetX, n[i].y - targetY);
-      if (d < minD) {
-        minD = d;
-        bestIdx = i;
-      }
-    }
+    const target = { x: ol[0]?.x ?? 380, y: ol[0]?.y ?? 350 };
+    const bestIdx = findClosestPointIndex(n, target);
     const jp = n[bestIdx];
     const nextOL = [{ ...ol[0], x: jp.x, y: jp.y }, ...ol.slice(1)];
     setDivOesteLeste(nextOL);
@@ -799,17 +791,7 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     }
 
     // 1. Calculate the exact closest point on divNorte to be the master junction
-    let junctionIndex = 0;
-    let minD = Infinity;
-    const targetX = ol[0]?.x ?? 380;
-    const targetY = ol[0]?.y ?? 350;
-    for (let i = 0; i < n.length; i++) {
-      const d = Math.hypot(n[i].x - targetX, n[i].y - targetY);
-      if (d < minD) {
-        minD = d;
-        junctionIndex = i;
-      }
-    }
+    const junctionIndex = findClosestPointIndex(n, { x: ol[0]?.x ?? 380, y: ol[0]?.y ?? 350 });
 
     const junctionPoint = n[junctionIndex];
     // Master vertical line strictly starts from the exact junction vertex
