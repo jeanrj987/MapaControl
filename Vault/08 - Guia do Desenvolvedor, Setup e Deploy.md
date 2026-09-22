@@ -69,16 +69,22 @@ CREATE TABLE IF NOT EXISTS public.mapa_config (
 -- Ativar RLS
 ALTER TABLE public.mapa_config ENABLE ROW LEVEL SECURITY;
 
--- Políticas de acesso público
+-- Leitura pública (TV e visitantes veem o mapa sem login)
 CREATE POLICY "Permitir leitura pública mapa_config"
   ON public.mapa_config FOR SELECT USING (true);
 
-CREATE POLICY "Permitir atualização pública mapa_config"
-  ON public.mapa_config FOR ALL USING (true) WITH CHECK (true);
+-- Escrita restrita a usuários autenticados (edição de divisas e tempos de TV)
+CREATE POLICY "Permitir escrita apenas para autenticados"
+  ON public.mapa_config FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Habilitar Realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE public.mapa_config;
 ```
+
+3. Crie as contas de quem poderá editar o mapa em **Authentication > Users > Add user** (não existe tela de cadastro no app, por design).
+4. Em **Authentication > Providers > Email**, desative **"Allow new users to sign up"** para impedir autocadastro.
+
+> Projetos que já rodaram uma versão anterior do `schema.sql` (com escrita pública) devem aplicar apenas o `supabase/auth_policies.sql`, que troca a política antiga pela restrita sem recriar a tabela. Detalhes completos do fluxo de login em [[09 - Autenticação e Controle de Acesso]].
 
 ---
 

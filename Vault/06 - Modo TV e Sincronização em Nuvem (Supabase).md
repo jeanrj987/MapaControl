@@ -98,7 +98,7 @@ export function subscribeToConfigChanges(
 ## 🔒 Políticas de Segurança (Row Level Security - RLS)
 
 - **SELECT Público:** Qualquer TV ou visitante pode carregar as configurações do mapa sem precisar de login prévio (`FOR SELECT USING (true)`).
-- **UPDATE/INSERT Público ou Protegido:** Permite atualização direta pelas estações de trabalho autorizadas (`FOR ALL USING (true) WITH CHECK (true)`).
+- **INSERT/UPDATE/DELETE Restrito a Autenticados:** Desde a introdução do login (ver [[09 - Autenticação e Controle de Acesso]]), a escrita na tabela exige sessão autenticada via Supabase Auth (`FOR ALL TO authenticated USING (true) WITH CHECK (true)`). Antes disso, a política liberava escrita pública, o que permitia que qualquer visitante alterasse divisas e tempos de TV.
 
 ---
 

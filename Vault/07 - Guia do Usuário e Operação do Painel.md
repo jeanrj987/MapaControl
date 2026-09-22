@@ -37,6 +37,7 @@
   - Para remover o destaque, basta clicar novamente na cidade selecionada.
 
 ### 3. Configurar os Tempos do Modo TV
+> ⚠️ **Acesso restrito:** desde a implementação do login (ver [[09 - Autenticação e Controle de Acesso]]), este passo exige estar autenticado. Clique em **🔒 Entrar** no cabeçalho e informe o email/senha cadastrados no Supabase antes de prosseguir.
 1. Clique no botão **⚙️ Configurações** (ou ícone de engrenagem) no cabeçalho.
 2. O modal de tempos será aberto exibindo os sliders/campos numéricos para cada região:
    - *Tempo Norte (segundos)*
@@ -48,6 +49,7 @@
 4. Imediatamente todas as TVs da empresa sincronizarão o novo ciclo.
 
 ### 4. Ajustar as Divisas Territoriais do MT (✂️)
+> ⚠️ **Acesso restrito:** também exige login (mesma conta usada nos Tempos de TV). Sem sessão ativa, o clique na tesoura abre a tela de login em vez do editor.
 1. Clique no botão com ícone de tesoura **✂️** no cabeçalho.
 2. O mapa entrará no **Modo Editor de Divisas**:
    - **Mover Ponto:** Clique sobre uma bolinha numerada e arraste para o local desejado.

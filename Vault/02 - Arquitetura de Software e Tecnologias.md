@@ -33,7 +33,8 @@ c:\Projetos\Mapa\
 │   │   └── UI\
 │   │       ├── Header.tsx             # Cabeçalho com logo, botões de ação e status
 │   │       ├── Icons.tsx              # Componentes de ícones reutilizáveis
-│   │       └── TvSettingsModal.tsx    # Modal de configuração de tempos do Modo TV
+│   │       ├── TvSettingsModal.tsx    # Modal de configuração de tempos do Modo TV
+│   │       └── LoginModal.tsx         # Modal de login (acesso restrito para edição)
 │   ├── data\
 │   │   ├── brazilGeo.ts               # Paths e geometrias dos estados brasileiros
 │   │   ├── cidadesExcel.ts            # Base oficial de 100 cidades com lat/long e região
@@ -42,6 +43,7 @@ c:\Projetos\Mapa\
 │   ├── services\
 │   │   ├── mapConfigService.ts        # Serviço de persistência e realtime no Supabase
 │   │   ├── supabase.ts                # Inicialização do client Supabase
+│   │   ├── authService.ts             # Login/logout e sessão via Supabase Auth
 │   │   └── weatherService.ts          # Requisições em lote e cache de clima
 │   ├── types\
 │   │   ├── dividers.ts                # Tipos e nós padrão das divisas vetoriais

@@ -18,10 +18,13 @@ CREATE POLICY "Permitir leitura pública mapa_config"
   FOR SELECT
   USING (true);
 
--- Permitir gravação/atualização para salvar novas divisas e tempos
-CREATE POLICY "Permitir atualização pública mapa_config"
+-- Permitir gravação/atualização apenas para usuários autenticados (login restrito).
+-- Contas são criadas manualmente em Authentication > Users; não há tela de cadastro no app.
+-- Ver Vault/09 - Autenticação e Controle de Acesso.md para o fluxo completo.
+CREATE POLICY "Permitir escrita apenas para autenticados"
   ON public.mapa_config
   FOR ALL
+  TO authenticated
   USING (true)
   WITH CHECK (true);
 

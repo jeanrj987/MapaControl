@@ -7,8 +7,10 @@ import { RegionSelector } from './components/RegionSelector/RegionSelector';
 import { RegionMap } from './components/Map/RegionMap';
 import { RegionDetails } from './components/RegionDetails/RegionDetails';
 import { TvSettingsModal, RegionTimers, DEFAULT_REGION_TIMERS } from './components/UI/TvSettingsModal';
-import { Clock, Settings } from './components/UI/Icons';
+import { LoginModal } from './components/UI/LoginModal';
+import { Clock, Settings, Lock, LogOut } from './components/UI/Icons';
 import { loadTvTimers, saveTvTimers, subscribeToMapConfigChanges } from './services/mapConfigService';
+import { getCurrentSession, subscribeToAuthChanges, signOut, Session } from './services/authService';
 
 const ROTATION_SEQUENCE: (RegiaoId | null)[] = ['norte', 'sorriso', 'oeste', 'leste', null];
 
@@ -81,6 +83,22 @@ export function App() {
   const [isTvMode, setIsTvMode] = useState<boolean>(true); // Ativo por padrão para TV
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isAdjustingDividers, setIsAdjustingDividers] = useState<boolean>(false);
+
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
+  const isAuthenticated = !!session;
+
+  // Carrega sessão de autenticação e assina mudanças (login/logout em qualquer aba)
+  useEffect(() => {
+    getCurrentSession().then(setSession);
+    const unsubscribe = subscribeToAuthChanges(setSession);
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    signOut();
+    setIsAdjustingDividers(false);
+  }, []);
 
   const [regionTimers, setRegionTimers] = useState<RegionTimers>(() => {
     try {
@@ -166,15 +184,19 @@ export function App() {
     setSelectedCityName(null);
   }, []);
 
-  // Alterna o modo de ajuste de divisas
+  // Alterna o modo de ajuste de divisas (exige login para ativar)
   const handleToggleAdjustDividers = useCallback((active: boolean) => {
+    if (active && !isAuthenticated) {
+      setIsLoginOpen(true);
+      return;
+    }
     setIsAdjustingDividers(active);
     if (active) {
       setSelectedRegionId(null);
       setSelectedState(null);
       setSelectedCityName(null);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Seleção manual via abas
   const handleSelectRegion = useCallback((id: RegiaoId | null) => {
@@ -228,39 +250,67 @@ export function App() {
           <RegionSelector
             selectedRegionId={selectedRegionId}
             isAdjustingDividers={isAdjustingDividers}
+            isAuthenticated={isAuthenticated}
             onSelectRegion={handleSelectRegion}
             onToggleAdjustDividers={handleToggleAdjustDividers}
           />
         </div>
 
-        {/* Controles Modo TV com Botão de Ajuste de Tempo Individual */}
+        {/* Controles Modo TV com Botão de Ajuste de Tempo Individual (visíveis apenas para usuários autenticados) */}
         <div className="flex items-center justify-end gap-2 bg-[#1D242E] border border-[#2E3A4B] px-3 py-1.5 rounded-2xl shadow-lg shrink-0 self-end sm:self-auto">
-          {/* Botão Liga/Desliga TV */}
-          <button
-            type="button"
-            onClick={() => setIsTvMode((prev) => !prev)}
-            className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              isTvMode
-                ? 'bg-[#95B955] text-[#1D242E] shadow-md shadow-[#95B955]/30'
-                : 'bg-[#202834] text-slate-300 hover:text-white border border-[#2E3A4B]'
-            }`}
-            title="Alternar rotação automática de regiões para TV"
-          >
-            <span className={`w-2 h-2 rounded-full ${isTvMode ? 'bg-[#1D242E] animate-ping' : 'bg-slate-500'}`} />
-            <span>{isTvMode ? `Modo TV (${currentDurationSeconds}s)` : 'Modo TV: Pausado'}</span>
-          </button>
+          {isAuthenticated && (
+            <>
+              {/* Botão Liga/Desliga TV */}
+              <button
+                type="button"
+                onClick={() => setIsTvMode((prev) => !prev)}
+                className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  isTvMode
+                    ? 'bg-[#95B955] text-[#1D242E] shadow-md shadow-[#95B955]/30'
+                    : 'bg-[#202834] text-slate-300 hover:text-white border border-[#2E3A4B]'
+                }`}
+                title="Alternar rotação automática de regiões para TV"
+              >
+                <span className={`w-2 h-2 rounded-full ${isTvMode ? 'bg-[#1D242E] animate-ping' : 'bg-slate-500'}`} />
+                <span>{isTvMode ? `Modo TV (${currentDurationSeconds}s)` : 'Modo TV: Pausado'}</span>
+              </button>
 
-          {/* Botão de Ajuste de Tempo / Configurações */}
-          <button
-            type="button"
-            onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#202834] hover:bg-[#2E3A4B] text-slate-300 hover:text-[#95B955] border border-[#2E3A4B] transition-colors text-xs font-bold shadow-sm"
-            title="Configurar tempo de rotação individual de cada região"
-          >
-            <Clock className="w-3.5 h-3.5 text-[#95B955]" />
-            <span className="hidden sm:inline">Tempos</span>
-            <Settings className="w-3.5 h-3.5 text-slate-400" />
-          </button>
+              {/* Botão de Ajuste de Tempo / Configurações */}
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#202834] hover:bg-[#2E3A4B] text-slate-300 hover:text-[#95B955] border border-[#2E3A4B] transition-colors text-xs font-bold shadow-sm"
+                title="Configurar tempo de rotação individual de cada região"
+              >
+                <Clock className="w-3.5 h-3.5 text-[#95B955]" />
+                <span className="hidden sm:inline">Tempos</span>
+                <Settings className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+            </>
+          )}
+
+          {/* Botão de Login / Logout do Editor Restrito */}
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-950/50 hover:bg-red-950/60 text-emerald-400 hover:text-red-400 border border-emerald-500/30 hover:border-red-500/40 transition-colors text-xs font-bold shadow-sm"
+              title={'Sair (' + (session?.user?.email || 'sessão ativa') + ')'}
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sair</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsLoginOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#202834] hover:bg-[#2E3A4B] text-slate-300 hover:text-sky-400 border border-[#2E3A4B] transition-colors text-xs font-bold shadow-sm"
+              title="Entrar para editar divisas e tempos de TV"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Entrar</span>
+            </button>
+          )}
 
           {/* Botão Fullscreen */}
           <button
@@ -340,6 +390,9 @@ export function App() {
         onApplyAllTimers={handleApplyAllTimers}
         onResetTimers={handleResetTimers}
       />
+
+      {/* 6. Modal de Login (Acesso Restrito para Edição) */}
+      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
     </div>
   );
 }
