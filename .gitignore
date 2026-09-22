@@ -36,6 +36,8 @@ jspm_packages/
 # Build output
 dist/
 build/
+dist.zip
+*.zip
 
 # Environment variables
 .env

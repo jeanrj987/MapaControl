@@ -39,7 +39,6 @@ c:\Projetos\Mapa\
 │   ├── data\
 │   │   ├── brazilGeo.ts               # Paths e geometrias dos estados brasileiros
 │   │   ├── cidadesExcel.ts            # Base oficial de 100 cidades com lat/long e região
-│   │   ├── precomputedStates.json     # Geometrias pré-processadas do IBGE
 │   │   └── regions.ts                 # Definição das 4 regiões, equipes e cores
 │   ├── services\
 │   │   ├── mapConfigService.ts        # Serviço de persistência e realtime no Supabase
@@ -102,6 +101,8 @@ sequenceDiagram
    - Caso a API de clima falhe em alguma cidade, o painel oculta o selo térmico de forma limpa, sem quebrar a interface.
 3. **Memoização Agressiva para Alta Performance em TVs:**
    - As 100 cidades e milhares de pontos vetoriais são envolvidos em `useMemo` para evitar recalcular polígonos a cada frame ou re-renderização.
+4. **Code-Splitting do GeoJSON (`br-states.json`):**
+   - O arquivo de fronteiras do Brasil tem ~5,6MB. Em vez de `import` estático (que embutiria o arquivo inteiro no bundle principal do JS, atrasando o carregamento de todo o app), `src/data/brazilGeo.ts` carrega esse dado via `import()` dinâmico — o Vite gera um chunk separado (`br-states-*.js`), baixado assincronamente só quando `RegionMap` monta. Isso reduziu o bundle principal de ~5,96MB para ~358KB. Por consequência, `getAllBrazilStates()` e `getProjectedCities()` são funções assíncronas; `RegionMap.tsx` as consome via `useState` + `useEffect`, renderizando o mapa vazio por um instante até o chunk resolver.
 
 ---
 

@@ -863,8 +863,21 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     };
   }, [onSelectRegion, onSelectState]);
 
-  const states = useMemo(() => getAllBrazilStates(), []);
-  const cities = useMemo(() => getProjectedCities(), []);
+  // `br-states.json` (5,6MB) é carregado sob demanda em um chunk separado (ver
+  // brazilGeo.ts), então os estados/cidades só ficam disponíveis após esse fetch
+  // assíncrono resolver — o mapa renderiza vazio por um instante até então.
+  const [states, setStates] = useState<StateRenderData[]>([]);
+  const [cities, setCities] = useState<ProjectedCity[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    getAllBrazilStates().then((data) => { if (active) setStates(data); });
+    getProjectedCities().then((data) => { if (active) setCities(data); });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const mtState = useMemo(() => states.find((s) => s.uf === 'MT'), [states]);
   const paState = useMemo(() => states.find((s) => s.uf === 'PA'), [states]);
 

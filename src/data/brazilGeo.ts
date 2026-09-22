@@ -1,5 +1,4 @@
 import { geoMercator, geoPath } from 'd3-geo';
-import brStatesRaw from '../../br-states.json';
 import { RegiaoId } from '../types/region';
 import { EXCEL_CITIES, ExcelCity } from './cidadesExcel';
 
@@ -31,29 +30,49 @@ export const STATE_NAMES: Record<string, string> = {
   TO: 'Tocantins'
 };
 
-const projection = geoMercator().fitExtent(
-  [
-    [MAP_PADDING, MAP_PADDING],
-    [MAP_VIEWBOX_WIDTH - MAP_PADDING, MAP_VIEWBOX_HEIGHT - MAP_PADDING]
-  ],
-  brStatesRaw as any
-);
+// `br-states.json` (GeoJSON com as fronteiras do Brasil) tem ~5,6MB. Em vez de
+// importá-lo estaticamente (o que embute o arquivo inteiro no bundle principal
+// do JS, atrasando o carregamento e o parse de TODO o app), ele é carregado sob
+// demanda via import() dinâmico: o Vite gera um chunk separado, baixado em
+// paralelo/assíncrono só quando o mapa realmente precisa dele.
+let brStatesFeatureCollection: any = null;
+let projection: ReturnType<typeof geoMercator> | null = null;
+let pathGenerator: ReturnType<typeof geoPath> | null = null;
+let geoDataPromise: Promise<void> | null = null;
 
-const pathGenerator = geoPath().projection(projection);
+function ensureGeoDataLoaded(): Promise<void> {
+  if (!geoDataPromise) {
+    geoDataPromise = import('../../br-states.json').then((mod) => {
+      brStatesFeatureCollection = mod.default;
+      projection = geoMercator().fitExtent(
+        [
+          [MAP_PADDING, MAP_PADDING],
+          [MAP_VIEWBOX_WIDTH - MAP_PADDING, MAP_VIEWBOX_HEIGHT - MAP_PADDING]
+        ],
+        brStatesFeatureCollection as any
+      );
+      pathGenerator = geoPath().projection(projection);
+    });
+  }
+  return geoDataPromise;
+}
 
 export const projectCoordinates = (lon: number, lat: number): [number, number] => {
+  if (!projection) return [450, 450]; // Fallback só usado antes do primeiro carregamento
   const pt = projection([lon, lat]);
   return pt ? [Math.round(pt[0] * 10) / 10, Math.round(pt[1] * 10) / 10] : [450, 450];
 };
 
-export const getAllBrazilStates = (): StateRenderData[] => {
+export const getAllBrazilStates = async (): Promise<StateRenderData[]> => {
+  await ensureGeoDataLoaded();
+  const generator = pathGenerator!; // garantido não-nulo: ensureGeoDataLoaded() já resolveu
   const states: StateRenderData[] = [];
 
-  for (const feature of (brStatesRaw as any).features) {
+  for (const feature of brStatesFeatureCollection.features) {
     const uf = feature.id as string;
     const name = STATE_NAMES[uf] || uf;
-    const pathStr = pathGenerator(feature) || '';
-    const rawCentroid = pathGenerator.centroid(feature);
+    const pathStr = generator(feature) || '';
+    const rawCentroid = generator.centroid(feature);
     let cx = isNaN(rawCentroid[0]) ? 400 : rawCentroid[0];
     let cy = isNaN(rawCentroid[1]) ? 400 : rawCentroid[1];
 
@@ -96,7 +115,8 @@ export const getAllBrazilStates = (): StateRenderData[] => {
   return states;
 };
 
-export const getProjectedCities = (): ProjectedCity[] => {
+export const getProjectedCities = async (): Promise<ProjectedCity[]> => {
+  await ensureGeoDataLoaded();
   return EXCEL_CITIES.map((c) => {
     const [x, y] = projectCoordinates(c.lon, c.lat);
     return {
