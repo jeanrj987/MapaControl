@@ -430,13 +430,18 @@ export const RegionMap: React.FC<RegionMapProps> = ({
 
   // Live Dividers Editor State (Drag & Drop Points on Map for MT and PA)
   const [liveEditorMode, setLiveEditorMode] = useState(isLiveEditorActive ?? false);
+  // Rastreia se o editor já esteve ativo nesta sessão, para só salvar na nuvem
+  // ao FECHAR o editor (transição true -> false) — não no carregamento inicial
+  // da página, quando isLiveEditorActive já nasce `false` sem ninguém ter editado nada.
+  const wasLiveEditorActiveRef = useRef(false);
 
   useEffect(() => {
     if (isLiveEditorActive !== undefined) {
       setLiveEditorMode(isLiveEditorActive);
-      if (!isLiveEditorActive) {
+      if (!isLiveEditorActive && wasLiveEditorActiveRef.current) {
         saveDividers(latestDivNorteRef.current, latestDivOesteLesteRef.current, latestDivPaRef.current);
       }
+      wasLiveEditorActiveRef.current = isLiveEditorActive;
     }
   }, [isLiveEditorActive]);
 
