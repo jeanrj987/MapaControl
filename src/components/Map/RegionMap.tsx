@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback, memo } from 'react';
 import { RegiaoId, WeatherData } from '../../types/region';
 import { REGIONS_DATA } from '../../data/regions';
-import { fetchBatchWeather } from '../../services/weatherService';
+import { fetchBatchWeather, fetchWeather, MAIN_CITIES_COORDS, CityCoords } from '../../services/weatherService';
 import {
   getAllBrazilStates,
   getProjectedCities,
@@ -382,25 +382,50 @@ export const RegionMap: React.FC<RegionMapProps> = ({
   const [hoveredCity, setHoveredCity] = useState<ProjectedCity | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [weatherMap, setWeatherMap] = useState<Record<string, WeatherData>>({});
+  const weatherMapRef = useRef<Record<string, WeatherData>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
+    weatherMapRef.current = weatherMap;
+  }, [weatherMap]);
+
+  // Clima das 4 cidades-polo (badge de região ativa) — único fetch em lote/intervalo.
+  // Cidades hover/selecionadas são buscadas sob demanda logo abaixo, evitando
+  // varrer as ~100 cidades atendidas a cada 15 minutos sem necessidade.
+  useEffect(() => {
     let active = true;
-    const loadWeather = async () => {
-      const allCitiesList = getProjectedCities().map((c) => ({ name: c.name, lat: c.lat, lon: c.lon }));
-      const data = await fetchBatchWeather(allCitiesList);
+    const loadPoloWeather = async () => {
+      const poloCities: CityCoords[] = Object.values(REGION_POLO_CITIES)
+        .map((name) => MAIN_CITIES_COORDS[name])
+        .filter((c): c is CityCoords => Boolean(c));
+      const data = await fetchBatchWeather(poloCities);
       if (active) {
-        setWeatherMap(data);
+        setWeatherMap((prev) => ({ ...prev, ...data }));
       }
     };
-    loadWeather();
-    const interval = setInterval(loadWeather, 15 * 60 * 1000);
+    loadPoloWeather();
+    const interval = setInterval(loadPoloWeather, 15 * 60 * 1000);
     return () => {
       active = false;
       clearInterval(interval);
     };
   }, []);
+
+  // Clima sob demanda da cidade em hover (usa o cache de weatherService, então
+  // repetir o hover na mesma cidade não gera nova requisição).
+  useEffect(() => {
+    if (!hoveredCity || weatherMapRef.current[hoveredCity.name]) return;
+    let active = true;
+    fetchWeather(hoveredCity.name, hoveredCity.lat, hoveredCity.lon).then((data) => {
+      if (active && data) {
+        setWeatherMap((prev) => ({ ...prev, [data.cityName]: data }));
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [hoveredCity]);
 
   // Live Dividers Editor State (Drag & Drop Points on Map for MT and PA)
   const [liveEditorMode, setLiveEditorMode] = useState(isLiveEditorActive ?? false);
@@ -866,6 +891,20 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     const q = selectedCityName.toLowerCase().trim();
     return cities.find((c) => c.name.toLowerCase() === q || c.id === q || c.rawName.toLowerCase() === q) || null;
   }, [cities, selectedCityName]);
+
+  // Clima sob demanda da cidade selecionada (mesma lógica de cache do hover acima).
+  useEffect(() => {
+    if (!selectedCityObj || weatherMapRef.current[selectedCityObj.name]) return;
+    let active = true;
+    fetchWeather(selectedCityObj.name, selectedCityObj.lat, selectedCityObj.lon).then((data) => {
+      if (active && data) {
+        setWeatherMap((prev) => ({ ...prev, [data.cityName]: data }));
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [selectedCityObj]);
 
   const activeRegion = selectedRegionId || hoveredRegionId;
   const isAllRegions = activeRegion === null;

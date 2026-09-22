@@ -64,6 +64,16 @@ export async function fetchBatchWeather(cities: { name: string; lat: number; lon
 ### 3. Mecanismo de Retry Resiliente
 Em caso de instabilidade pontual de internet ou micro-interrupções, a função faz uma segunda tentativa automática após 400ms antes de descartar a resposta.
 
+### 4. Estratégia de Busca no `RegionMap.tsx`: Polo + Sob Demanda
+Até a otimização, o `RegionMap.tsx` buscava o clima das ~100 cidades atendidas a cada 15 minutos, mesmo que a UI só exiba temperatura para no máximo 3 cidades por vez (o polo da região ativa, a cidade em hover e a cidade selecionada). Isso gerava dezenas de requisições desnecessárias por ciclo, por aba de navegador aberta.
+
+A estratégia atual busca em três camadas independentes, todas compartilhando o mesmo cache de `weatherService.ts`:
+1. **Polo (intervalo fixo):** as 4 cidades-polo (`Sorriso`, `Alta Floresta`, `Cuiabá`, `Vilhena`, de `REGION_POLO_CITIES`) são buscadas em lote no carregamento e a cada 15 minutos — cobre o badge de clima da região ativa mesmo sem interação do usuário.
+2. **Hover (sob demanda):** ao passar o mouse sobre uma cidade no mapa, um `useEffect` busca o clima daquela cidade específica *apenas se ainda não estiver em cache* (checado via `weatherMapRef`, um espelho em `ref` do estado para não re-disparar o efeito a cada atualização de `weatherMap`).
+3. **Cidade selecionada (sob demanda):** mesma lógica do hover, disparada quando `selectedCityObj` muda.
+
+O `RegionDetails.tsx` mantém sua própria busca em lote, mas já era escopada corretamente (só as cidades da região atualmente selecionada, disparada apenas quando a região muda — sem polling), então não precisou de ajuste.
+
 ---
 
 ## 🌤️ Mapeamento de Códigos Meteorológicos WMO
