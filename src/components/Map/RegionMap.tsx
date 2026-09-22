@@ -258,6 +258,115 @@ StateBadge.displayName = 'StateBadge';
 import { ControlPoint, DEFAULT_DIV_NORTE, DEFAULT_DIV_OESTE_LESTE, DEFAULT_DIV_PA } from '../../types/dividers';
 import { loadDividers, saveDividers, subscribeToMapConfigChanges } from '../../services/mapConfigService';
 
+type DividerListKey = 'norte' | 'oeste-leste' | 'pa';
+
+const DIVIDER_MIN_POINTS: Record<DividerListKey, number> = {
+  norte: 4,
+  'oeste-leste': 2,
+  pa: 2,
+};
+
+const DIVIDER_ID_PREFIX: Record<DividerListKey, string> = {
+  norte: 'n_',
+  'oeste-leste': 'ol_',
+  pa: 'pa_',
+};
+
+interface DividerGeometry {
+  hitR: number;
+  pingR: number;
+  nodeR: number;
+  strokeW: number;
+  fontSize: number;
+  labelY: number;
+  delBtnR: number;
+}
+
+/** Nó arrastável de uma divisória (bolinha + rótulo + botão de excluir no hover). */
+const DividerNode = memo<{
+  point: ControlPoint;
+  geo: DividerGeometry;
+  circle: { r: number; fill: string; stroke: string; strokeWidth: number };
+  ping?: { show: boolean; pulse?: boolean };
+  label?: { show: boolean; text: string; color: string; fontSize?: number };
+  deletable: boolean;
+  cursorClass: string;
+  onMouseDown: (e: React.MouseEvent) => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  onDelete: (e: React.MouseEvent) => void;
+}>(({ point, geo, circle, ping, label, deletable, cursorClass, onMouseDown, onContextMenu, onMouseEnter, onMouseLeave, onDelete }) => (
+  <g
+    transform={`translate(${point.x}, ${point.y})`}
+    className={'select-none group ' + cursorClass}
+    onMouseDown={onMouseDown}
+    onContextMenu={onContextMenu}
+    onMouseEnter={onMouseEnter}
+    onMouseLeave={onMouseLeave}
+  >
+    {/* Área de captura invisível maior que o círculo visível, para facilitar o clique/arraste */}
+    <circle r={geo.hitR} fill="transparent" />
+    {ping?.show && (
+      <circle r={geo.pingR} fill={circle.fill} fillOpacity="0.4" className={ping.pulse ? 'animate-pulse' : 'animate-ping'} />
+    )}
+    <circle
+      r={circle.r}
+      fill={circle.fill}
+      stroke={circle.stroke}
+      strokeWidth={circle.strokeWidth}
+      className="transition-all duration-150 shadow-lg"
+      style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }}
+    />
+    {label?.show && (
+      <text
+        y={geo.labelY}
+        textAnchor="middle"
+        fill={label.color}
+        fontSize={label.fontSize ?? geo.fontSize}
+        fontWeight="bold"
+        fontFamily="monospace"
+        className="pointer-events-none select-none drop-shadow font-mono bg-black/80"
+      >
+        {label.text}
+      </text>
+    )}
+    {deletable && (
+      <g
+        transform={`translate(${geo.nodeR * 1.9}, ${-geo.nodeR * 1.9})`}
+        className="cursor-pointer group/del"
+        onMouseDown={onDelete}
+      >
+        <circle r={geo.delBtnR} fill="#ef4444" stroke="#ffffff" strokeWidth={geo.strokeW} className="shadow" />
+        <text y={geo.delBtnR * 0.4} textAnchor="middle" fill="#ffffff" fontSize={geo.delBtnR * 1.4} fontWeight="bold">
+          ×
+        </text>
+      </g>
+    )}
+  </g>
+));
+DividerNode.displayName = 'DividerNode';
+
+/** Linha invisível e espessa sobre uma divisória, clicável para inserir um novo ponto. */
+const DividerAddLine = memo<{
+  pathD: string;
+  strokeWidth: number;
+  isAddMode: boolean;
+  onAddClick: (e: React.MouseEvent) => void;
+  onDoubleClick: (e: React.MouseEvent) => void;
+}>(({ pathD, strokeWidth, isAddMode, onAddClick, onDoubleClick }) => (
+  <path
+    d={pathD}
+    fill="none"
+    stroke="transparent"
+    strokeWidth={strokeWidth}
+    className={isAddMode ? 'cursor-crosshair' : 'cursor-copy'}
+    onClick={onAddClick}
+    onDoubleClick={onDoubleClick}
+  />
+));
+DividerAddLine.displayName = 'DividerAddLine';
+
 export const RegionMap: React.FC<RegionMapProps> = ({
   selectedRegionId,
   hoveredRegionId,
@@ -426,112 +535,57 @@ export const RegionMap: React.FC<RegionMapProps> = ({
     };
   }, []);
 
-  const draggingPointRef = useRef<{ list: 'norte' | 'oeste-leste' | 'pa'; id: string } | null>(null);
+  const draggingPointRef = useRef<{ list: DividerListKey; id: string } | null>(null);
 
-  const deletePoint = useCallback((list: 'norte' | 'oeste-leste' | 'pa', id: string) => {
-    if (list === 'norte') {
-      setDivNorte((prev) => {
-        if (prev.length <= 4) {
-          setLiveEditorSaveMsg('⚠️ Mínimo de 4 pontos');
-          setTimeout(() => setLiveEditorSaveMsg(''), 2500);
-          return prev;
-        }
-        const next = prev.filter((p) => p.id !== id);
-        saveDividers(next, divOesteLeste, divPa);
-        setLiveEditorSaveMsg('🗑️ Ponto removido!');
-        setTimeout(() => setLiveEditorSaveMsg(''), 2000);
-        return next;
-      });
-    } else if (list === 'oeste-leste') {
-      setDivOesteLeste((prev) => {
-        if (prev.length <= 2) {
-          setLiveEditorSaveMsg('⚠️ Mínimo de 2 pontos');
-          setTimeout(() => setLiveEditorSaveMsg(''), 2500);
-          return prev;
-        }
-        const next = prev.filter((p) => p.id !== id);
-        saveDividers(divNorte, next, divPa);
-        setLiveEditorSaveMsg('🗑️ Ponto removido!');
-        setTimeout(() => setLiveEditorSaveMsg(''), 2000);
-        return next;
-      });
-    } else {
-      setDivPa((prev) => {
-        if (prev.length <= 2) {
-          setLiveEditorSaveMsg('⚠️ Mínimo de 2 pontos');
-          setTimeout(() => setLiveEditorSaveMsg(''), 2500);
-          return prev;
-        }
-        const next = prev.filter((p) => p.id !== id);
-        saveDividers(divNorte, divOesteLeste, next);
-        setLiveEditorSaveMsg('🗑️ Ponto removido!');
-        setTimeout(() => setLiveEditorSaveMsg(''), 2000);
-        return next;
-      });
-    }
-  }, [divNorte, divOesteLeste, divPa]);
+  const dividerSetters = useMemo(() => ({
+    norte: setDivNorte,
+    'oeste-leste': setDivOesteLeste,
+    pa: setDivPa,
+  }), []);
 
-  const insertPointAtCoords = useCallback((list: 'norte' | 'oeste-leste' | 'pa', x: number, y: number) => {
-    const newId = (list === 'norte' ? 'n_' : list === 'oeste-leste' ? 'ol_' : 'pa_') + Date.now();
-    if (list === 'norte') {
-      setDivNorte((prev) => {
-        let bestIdx = 1;
-        let minD = Infinity;
-        for (let i = 0; i < prev.length - 1; i++) {
-          const midX = (prev[i].x + prev[i + 1].x) / 2;
-          const midY = (prev[i].y + prev[i + 1].y) / 2;
-          const d = Math.hypot(x - midX, y - midY);
-          if (d < minD) {
-            minD = d;
-            bestIdx = i + 1;
-          }
+  const deletePoint = useCallback((list: DividerListKey, id: string) => {
+    const otherLists = { norte: divNorte, 'oeste-leste': divOesteLeste, pa: divPa };
+    const minPoints = DIVIDER_MIN_POINTS[list];
+
+    dividerSetters[list]((prev) => {
+      if (prev.length <= minPoints) {
+        setLiveEditorSaveMsg(`⚠️ Mínimo de ${minPoints} pontos`);
+        setTimeout(() => setLiveEditorSaveMsg(''), 2500);
+        return prev;
+      }
+      const next = prev.filter((p) => p.id !== id);
+      const merged = { ...otherLists, [list]: next };
+      saveDividers(merged.norte, merged['oeste-leste'], merged.pa);
+      setLiveEditorSaveMsg('🗑️ Ponto removido!');
+      setTimeout(() => setLiveEditorSaveMsg(''), 2000);
+      return next;
+    });
+  }, [divNorte, divOesteLeste, divPa, dividerSetters]);
+
+  const insertPointAtCoords = useCallback((list: DividerListKey, x: number, y: number) => {
+    const newId = DIVIDER_ID_PREFIX[list] + Date.now();
+    const otherLists = { norte: divNorte, 'oeste-leste': divOesteLeste, pa: divPa };
+
+    dividerSetters[list]((prev) => {
+      let bestIdx = 1;
+      let minD = Infinity;
+      for (let i = 0; i < prev.length - 1; i++) {
+        const midX = (prev[i].x + prev[i + 1].x) / 2;
+        const midY = (prev[i].y + prev[i + 1].y) / 2;
+        const d = Math.hypot(x - midX, y - midY);
+        if (d < minD) {
+          minD = d;
+          bestIdx = i + 1;
         }
-        const next = [...prev.slice(0, bestIdx), { id: newId, x, y }, ...prev.slice(bestIdx)];
-        saveDividers(next, divOesteLeste, divPa);
-        setLiveEditorSaveMsg('➕ Ponto inserido!');
-        setTimeout(() => setLiveEditorSaveMsg(''), 2000);
-        return next;
-      });
-    } else if (list === 'oeste-leste') {
-      setDivOesteLeste((prev) => {
-        let bestIdx = 1;
-        let minD = Infinity;
-        for (let i = 0; i < prev.length - 1; i++) {
-          const midX = (prev[i].x + prev[i + 1].x) / 2;
-          const midY = (prev[i].y + prev[i + 1].y) / 2;
-          const d = Math.hypot(x - midX, y - midY);
-          if (d < minD) {
-            minD = d;
-            bestIdx = i + 1;
-          }
-        }
-        const next = [...prev.slice(0, bestIdx), { id: newId, x, y }, ...prev.slice(bestIdx)];
-        saveDividers(divNorte, next, divPa);
-        setLiveEditorSaveMsg('➕ Ponto inserido!');
-        setTimeout(() => setLiveEditorSaveMsg(''), 2000);
-        return next;
-      });
-    } else {
-      setDivPa((prev) => {
-        let bestIdx = 1;
-        let minD = Infinity;
-        for (let i = 0; i < prev.length - 1; i++) {
-          const midX = (prev[i].x + prev[i + 1].x) / 2;
-          const midY = (prev[i].y + prev[i + 1].y) / 2;
-          const d = Math.hypot(x - midX, y - midY);
-          if (d < minD) {
-            minD = d;
-            bestIdx = i + 1;
-          }
-        }
-        const next = [...prev.slice(0, bestIdx), { id: newId, x, y }, ...prev.slice(bestIdx)];
-        saveDividers(divNorte, divOesteLeste, next);
-        setLiveEditorSaveMsg('➕ Ponto inserido!');
-        setTimeout(() => setLiveEditorSaveMsg(''), 2000);
-        return next;
-      });
-    }
-  }, [divNorte, divOesteLeste, divPa]);
+      }
+      const next = [...prev.slice(0, bestIdx), { id: newId, x, y }, ...prev.slice(bestIdx)];
+      const merged = { ...otherLists, [list]: next };
+      saveDividers(merged.norte, merged['oeste-leste'], merged.pa);
+      setLiveEditorSaveMsg('➕ Ponto inserido!');
+      setTimeout(() => setLiveEditorSaveMsg(''), 2000);
+      return next;
+    });
+  }, [divNorte, divOesteLeste, divPa, dividerSetters]);
 
   const handlePointMouseDown = useCallback((list: 'norte' | 'oeste-leste' | 'pa', id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1177,12 +1231,17 @@ export const RegionMap: React.FC<RegionMapProps> = ({
             {liveEditorMode && (() => {
               const currentScale = mapZoom > 1.0 ? mapZoom : 2.4;
               const nodeR = Math.max(2.5, 7.5 / currentScale);
-              const pingR = nodeR * 1.6;
-              const strokeW = Math.max(0.8, 2.0 / currentScale);
-              const hitR = Math.max(9, 20 / currentScale);
-              const fontSize = Math.max(6, 9 / currentScale);
-              const labelY = -nodeR - (3.5 / currentScale);
-              const delBtnR = Math.max(4, 7 / currentScale);
+              const geo: DividerGeometry = {
+                nodeR,
+                pingR: nodeR * 1.6,
+                strokeW: Math.max(0.8, 2.0 / currentScale),
+                hitR: Math.max(9, 20 / currentScale),
+                fontSize: Math.max(6, 9 / currentScale),
+                labelY: -nodeR - (3.5 / currentScale),
+                delBtnR: Math.max(4, 7 / currentScale),
+              };
+              const cursorClass = editorTool === 'delete' ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing';
+              const nodeFill = (color: string) => (editorTool === 'delete' ? '#ef4444' : color);
 
               const junctionIdx = mtPaths.junctionIndex ?? 0;
 
@@ -1190,57 +1249,24 @@ export const RegionMap: React.FC<RegionMapProps> = ({
               const showVerticalLine = activeEditorRegion === 'all' || activeEditorRegion === 'oeste' || activeEditorRegion === 'leste';
               const showPaLine = activeEditorRegion === 'all' || activeEditorRegion === 'pa' || activeEditorRegion === 'norte';
 
+              const makeAddLineProps = (list: DividerListKey) => ({
+                strokeWidth: Math.max(16, 32 / currentScale),
+                isAddMode: editorTool === 'add',
+                onAddClick: (e: React.MouseEvent) => {
+                  if (editorTool === 'add') {
+                    const { x, y } = getSvgCoords(e);
+                    insertPointAtCoords(list, x, y);
+                  }
+                },
+                onDoubleClick: (e: React.MouseEvent) => handleLineDoubleClick(list, e),
+              });
+
               return (
                 <g id='live-divider-handles-layer'>
                   {/* Clickable Line to Add Point */}
-                  {showNorteLine && (
-                    <path
-                      d={mtPaths.norteLineD}
-                      fill='none'
-                      stroke='transparent'
-                      strokeWidth={Math.max(16, 32 / currentScale)}
-                      className={editorTool === 'add' ? 'cursor-crosshair' : 'cursor-copy'}
-                      onClick={(e) => {
-                        if (editorTool === 'add') {
-                          const { x, y } = getSvgCoords(e);
-                          insertPointAtCoords('norte', x, y);
-                        }
-                      }}
-                      onDoubleClick={(e) => handleLineDoubleClick('norte', e)}
-                    />
-                  )}
-                  {showVerticalLine && (
-                    <path
-                      d={mtPaths.oesteLesteLineD}
-                      fill='none'
-                      stroke='transparent'
-                      strokeWidth={Math.max(16, 32 / currentScale)}
-                      className={editorTool === 'add' ? 'cursor-crosshair' : 'cursor-copy'}
-                      onClick={(e) => {
-                        if (editorTool === 'add') {
-                          const { x, y } = getSvgCoords(e);
-                          insertPointAtCoords('oeste-leste', x, y);
-                        }
-                      }}
-                      onDoubleClick={(e) => handleLineDoubleClick('oeste-leste', e)}
-                    />
-                  )}
-                  {showPaLine && (
-                    <path
-                      d={paPaths.lineD}
-                      fill='none'
-                      stroke='transparent'
-                      strokeWidth={Math.max(16, 32 / currentScale)}
-                      className={editorTool === 'add' ? 'cursor-crosshair' : 'cursor-copy'}
-                      onClick={(e) => {
-                        if (editorTool === 'add') {
-                          const { x, y } = getSvgCoords(e);
-                          insertPointAtCoords('pa', x, y);
-                        }
-                      }}
-                      onDoubleClick={(e) => handleLineDoubleClick('pa', e)}
-                    />
-                  )}
+                  {showNorteLine && <DividerAddLine pathD={mtPaths.norteLineD} {...makeAddLineProps('norte')} />}
+                  {showVerticalLine && <DividerAddLine pathD={mtPaths.oesteLesteLineD} {...makeAddLineProps('oeste-leste')} />}
+                  {showPaLine && <DividerAddLine pathD={paPaths.lineD} {...makeAddLineProps('pa')} />}
 
                   {/* Norte Divider Points */}
                   {divNorte.map((p, idx) => {
@@ -1273,65 +1299,26 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                       : idx === 0 ? 'Oeste' : idx === divNorte.length - 1 ? 'Leste' : `N${idx}`;
 
                     return (
-                      <g
+                      <DividerNode
                         key={p.id}
-                        transform={`translate(${p.x}, ${p.y})`}
-                        className={'select-none group ' + (editorTool === 'delete' ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing')}
+                        point={p}
+                        geo={geo}
+                        circle={{
+                          r: isHovered ? nodeR * 1.4 : isJunction ? nodeR * 1.25 : nodeR,
+                          fill: nodeFill(pointColor),
+                          stroke: isJunction ? '#fde047' : '#ffffff',
+                          strokeWidth: isJunction ? geo.strokeW * 1.5 : geo.strokeW,
+                        }}
+                        ping={{ show: isHovered || isJunction, pulse: isJunction }}
+                        label={{ show: showLabel, text: pointLabel, color: isJunction ? '#fde047' : '#ffffff', fontSize: isJunction ? geo.fontSize * 1.1 : geo.fontSize }}
+                        deletable={isHovered && !isEnd && !isJunction}
+                        cursorClass={cursorClass}
                         onMouseDown={(e) => handlePointMouseDown('norte', p.id, e)}
                         onContextMenu={(e) => handlePointContextMenu('norte', p.id, e)}
                         onMouseEnter={() => setHoveredNodeId(p.id)}
                         onMouseLeave={() => setHoveredNodeId(null)}
-                      >
-                        {/* Large Invisible Hit Target for Effortless Mouse Grab */}
-                        <circle r={hitR} fill='transparent' />
-                        {(isHovered || isJunction) && (
-                          <circle r={pingR} fill={editorTool === 'delete' ? '#ef4444' : pointColor} fillOpacity='0.4' className={isJunction ? 'animate-pulse' : 'animate-ping'} />
-                        )}
-                        <circle
-                          r={isHovered ? nodeR * 1.4 : isJunction ? nodeR * 1.25 : nodeR}
-                          fill={editorTool === 'delete' ? '#ef4444' : pointColor}
-                          stroke={isJunction ? '#fde047' : '#ffffff'}
-                          strokeWidth={isJunction ? strokeW * 1.5 : strokeW}
-                          className='transition-all duration-150 shadow-lg'
-                          style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }}
-                        />
-                        {showLabel && (
-                          <text
-                            y={labelY}
-                            textAnchor='middle'
-                            fill={isJunction ? '#fde047' : '#ffffff'}
-                            fontSize={isJunction ? fontSize * 1.1 : fontSize}
-                            fontWeight='bold'
-                            fontFamily='monospace'
-                            className='pointer-events-none select-none drop-shadow font-mono bg-black/80'
-                          >
-                            {pointLabel}
-                          </text>
-                        )}
-                        {/* Instant Delete Button on Hover (Click to remove without right-click) */}
-                        {isHovered && !isEnd && !isJunction && (
-                          <g
-                            transform={`translate(${nodeR * 1.9}, ${-nodeR * 1.9})`}
-                            className='cursor-pointer group/del'
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              deletePoint('norte', p.id);
-                            }}
-                          >
-                            <circle r={delBtnR} fill='#ef4444' stroke='#ffffff' strokeWidth={strokeW} className='shadow' />
-                            <text
-                              y={delBtnR * 0.4}
-                              textAnchor='middle'
-                              fill='#ffffff'
-                              fontSize={delBtnR * 1.4}
-                              fontWeight='bold'
-                            >
-                              ×
-                            </text>
-                          </g>
-                        )}
-                      </g>
+                        onDelete={(e) => { e.stopPropagation(); e.preventDefault(); deletePoint('norte', p.id); }}
+                      />
                     );
                   })}
 
@@ -1356,65 +1343,26 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                       : isEnd ? 'Sul' : `S${idx + 1}`;
 
                     return (
-                      <g
+                      <DividerNode
                         key={p.id}
-                        transform={`translate(${p.x}, ${p.y})`}
-                        className={'select-none group ' + (editorTool === 'delete' ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing')}
+                        point={p}
+                        geo={geo}
+                        circle={{
+                          r: isHovered ? nodeR * 1.35 : nodeR,
+                          fill: nodeFill(pointColor),
+                          stroke: '#ffffff',
+                          strokeWidth: geo.strokeW,
+                        }}
+                        ping={{ show: isHovered }}
+                        label={{ show: showLabel, text: pointLabel, color: '#ffffff' }}
+                        deletable={isHovered && !isEnd}
+                        cursorClass={cursorClass}
                         onMouseDown={(e) => handlePointMouseDown('oeste-leste', p.id, e)}
                         onContextMenu={(e) => handlePointContextMenu('oeste-leste', p.id, e)}
                         onMouseEnter={() => setHoveredNodeId(p.id)}
                         onMouseLeave={() => setHoveredNodeId(null)}
-                      >
-                        {/* Large Invisible Hit Target for Effortless Mouse Grab */}
-                        <circle r={hitR} fill='transparent' />
-                        {isHovered && (
-                          <circle r={pingR} fill={editorTool === 'delete' ? '#ef4444' : pointColor} fillOpacity='0.4' className='animate-ping' />
-                        )}
-                        <circle
-                          r={isHovered ? nodeR * 1.35 : nodeR}
-                          fill={editorTool === 'delete' ? '#ef4444' : pointColor}
-                          stroke='#ffffff'
-                          strokeWidth={strokeW}
-                          className='transition-all duration-150 shadow-lg'
-                          style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }}
-                        />
-                        {showLabel && (
-                          <text
-                            y={labelY}
-                            textAnchor='middle'
-                            fill='#ffffff'
-                            fontSize={fontSize}
-                            fontWeight='bold'
-                            fontFamily='monospace'
-                            className='pointer-events-none select-none drop-shadow font-mono bg-black/80'
-                          >
-                            {pointLabel}
-                          </text>
-                        )}
-                        {/* Instant Delete Button on Hover */}
-                        {isHovered && !isEnd && (
-                          <g
-                            transform={`translate(${nodeR * 1.9}, ${-nodeR * 1.9})`}
-                            className='cursor-pointer group/del'
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              deletePoint('oeste-leste', p.id);
-                            }}
-                          >
-                            <circle r={delBtnR} fill='#ef4444' stroke='#ffffff' strokeWidth={strokeW} className='shadow' />
-                            <text
-                              y={delBtnR * 0.4}
-                              textAnchor='middle'
-                              fill='#ffffff'
-                              fontSize={delBtnR * 1.4}
-                              fontWeight='bold'
-                            >
-                              ×
-                            </text>
-                          </g>
-                        )}
-                      </g>
+                        onDelete={(e) => { e.stopPropagation(); e.preventDefault(); deletePoint('oeste-leste', p.id); }}
+                      />
                     );
                   })}
 
@@ -1428,65 +1376,26 @@ export const RegionMap: React.FC<RegionMapProps> = ({
                     const pointLabel = idx === 0 ? 'PA Topo' : idx === divPa.length - 1 ? 'PA Base' : `PA${idx}`;
 
                     return (
-                      <g
+                      <DividerNode
                         key={p.id}
-                        transform={`translate(${p.x}, ${p.y})`}
-                        className={'select-none group ' + (editorTool === 'delete' ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing')}
+                        point={p}
+                        geo={geo}
+                        circle={{
+                          r: isHovered ? nodeR * 1.4 : nodeR,
+                          fill: nodeFill(pointColor),
+                          stroke: '#ffffff',
+                          strokeWidth: geo.strokeW,
+                        }}
+                        ping={{ show: isHovered }}
+                        label={{ show: showLabel, text: pointLabel, color: '#ffffff' }}
+                        deletable={isHovered && !isEnd}
+                        cursorClass={cursorClass}
                         onMouseDown={(e) => handlePointMouseDown('pa', p.id, e)}
                         onContextMenu={(e) => handlePointContextMenu('pa', p.id, e)}
                         onMouseEnter={() => setHoveredNodeId(p.id)}
                         onMouseLeave={() => setHoveredNodeId(null)}
-                      >
-                        {/* Large Invisible Hit Target for Effortless Mouse Grab */}
-                        <circle r={hitR} fill='transparent' />
-                        {isHovered && (
-                          <circle r={pingR} fill={editorTool === 'delete' ? '#ef4444' : pointColor} fillOpacity='0.4' className='animate-ping' />
-                        )}
-                        <circle
-                          r={isHovered ? nodeR * 1.4 : nodeR}
-                          fill={editorTool === 'delete' ? '#ef4444' : pointColor}
-                          stroke='#ffffff'
-                          strokeWidth={strokeW}
-                          className='transition-all duration-150 shadow-lg'
-                          style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }}
-                        />
-                        {showLabel && (
-                          <text
-                            y={labelY}
-                            textAnchor='middle'
-                            fill='#ffffff'
-                            fontSize={fontSize}
-                            fontWeight='bold'
-                            fontFamily='monospace'
-                            className='pointer-events-none select-none drop-shadow font-mono bg-black/80'
-                          >
-                            {pointLabel}
-                          </text>
-                        )}
-                        {/* Instant Delete Button on Hover */}
-                        {isHovered && !isEnd && (
-                          <g
-                            transform={`translate(${nodeR * 1.9}, ${-nodeR * 1.9})`}
-                            className='cursor-pointer group/del'
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              deletePoint('pa', p.id);
-                            }}
-                          >
-                            <circle r={delBtnR} fill='#ef4444' stroke='#ffffff' strokeWidth={strokeW} className='shadow' />
-                            <text
-                              y={delBtnR * 0.4}
-                              textAnchor='middle'
-                              fill='#ffffff'
-                              fontSize={delBtnR * 1.4}
-                              fontWeight='bold'
-                            >
-                              ×
-                            </text>
-                          </g>
-                        )}
-                      </g>
+                        onDelete={(e) => { e.stopPropagation(); e.preventDefault(); deletePoint('pa', p.id); }}
+                      />
                     );
                   })}
                 </g>
